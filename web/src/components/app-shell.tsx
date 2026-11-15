@@ -37,14 +37,14 @@ const NAV_ITEMS = [
     labelKey: "workbench.nav.workbench",
     icon: LayoutDashboardIcon
   },
-  { to: "/settings", labelKey: "workbench.nav.settings", icon: SettingsIcon },
-  { to: "/about", labelKey: "workbench.nav.about", icon: InfoIcon },
   {
     to: "/admin",
     labelKey: "workbench.nav.admin",
     icon: ShieldCheckIcon,
     adminOnly: true
-  }
+  },
+  { to: "/settings", labelKey: "workbench.nav.settings", icon: SettingsIcon },
+  { to: "/about", labelKey: "workbench.nav.about", icon: InfoIcon }
 ] as const
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
@@ -80,8 +80,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 /**
  * 登录后的应用壳：侧边栏 + 顶栏 + 内容区（技术方案 §3C 的三件套骨架）。
  *
- * 侧边栏只放页面导航；「系统管理」按角色隐藏（接口层另有 403）。
- * 移动端把同一份导航装进 Sheet。
+ * 侧边栏只放页面导航；「系统管理」排在「设置」上方，并按角色隐藏
+ * （接口层另有 403）。移动端把同一份导航装进 Sheet。
  */
 export function AppShell() {
   const { t } = useTranslation()

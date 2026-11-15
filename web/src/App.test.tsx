@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import {
   createMemoryRouter,
   RouterProvider,
@@ -105,5 +105,30 @@ describe("路由与根门", () => {
     expect(
       screen.queryByRole("link", { name: "系统管理" })
     ).not.toBeInTheDocument()
+  })
+
+  it("侧边栏导航里「系统管理」排在「设置」上方", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    const view = renderAt(routes, "/workbench")
+    await screen.findByRole("link", { name: "系统管理" })
+
+    const labels = within(screen.getByRole("navigation"))
+      .getAllByRole("link")
+      .map((link) => link.textContent?.trim())
+    expect(labels).toEqual(["工作台", "系统管理", "设置", "关于"])
+    view.unmount()
+
+    vi.mocked(meApi.get).mockResolvedValue(me({ role: "user" }))
+    renderAt(routes, "/workbench")
+    await screen.findByRole("link", { name: "工作台" })
+    expect(
+      within(screen.getByRole("navigation"))
+        .getAllByRole("link")
+        .map((link) => link.textContent?.trim())
+    ).toEqual(["工作台", "设置", "关于"])
   })
 })
