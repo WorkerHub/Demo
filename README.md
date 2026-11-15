@@ -1,12 +1,11 @@
-# Project Template
+# Temp
 
 > 对应方案：《WorkerHub 通用技术方案》main 现行版（[WorkerHub/tech-scheme](https://github.com/WorkerHub/tech-scheme)）。tech-scheme 是法，本仓是法的可运行实现；方案变更后的同步是独立工作。
 
-WorkerHub 薄骨架：迁移、setup 与鉴权的最小实现。本仓是 GitHub **template repository**，供 WorkerHub 新项目作为起点一键生成，**不是**带业务的小产品——没有示例业务表，也没有业务逻辑。
+Temp — WorkerHub 模板骨架项目：迁移、setup 与鉴权的最小实现。多用户档、开放注册；不含示例业务表与业务逻辑，业务功能按需填充。
 
 - **前端**：公开侧只有首页、登录、注册、找回密码与初始化页；登录后是「工作台 / 设置 / 关于 / 系统管理」四页骨架。
 - **后端**：只做项目身份、表前缀、迁移账本、setup、鉴权（密码 + TOTP + Passkey）、注册审核、邮件验证码与系统管理接口。
-- **模板例外**：本仓自身没有生产目标，`deploy.yml` 只保留 `workflow_dispatch`；从模板生成的新项目必须按下文「生成清单」改回自动部署。
 
 ## 界面预览
 
@@ -53,7 +52,7 @@ WorkerHub 薄骨架：迁移、setup 与鉴权的最小实现。本仓是 GitHub
 - **前端**：亮 / 暗 / 自动三档主题（首屏内联脚本防白闪）；中英双语（i18next，后端错误按稳定错误码翻译）；版本号与构建日期 / 时间由 `git describe` 在构建时生成（`build-info.json`，不入库）。
 - **系统管理**：邮件配置与测试邮件、注册 / 审核开关、待批准用户批准 / 拒绝、setup 页开关、数据库维护（回显生效前缀与迁移记录）。
 - **定时任务桩**：`scheduled()` 与 waker 双入口骨架，只有一个写日志的 no-op 任务与 D1 抢占示例，不碰真实业务。
-- **CI/CD 四件套**：`ci.yml`（lint / format / typecheck / build / test / 身份令牌 / 部署配置 dry-run）、`deploy.yml`（手动触发）、`tag.yml`（手动打语义化版本 tag，用仓库 secret `PAT_TOKEN`）、`release.yml`（tag 触发 GitHub Release）。
+- **CI/CD 四件套**：`ci.yml`（lint / format / typecheck / build / test / 身份令牌 / 部署配置 dry-run）、`deploy.yml`（push main 自动部署）、`tag.yml`（手动打语义化版本 tag，用仓库 secret `PAT_TOKEN`）、`release.yml`（tag 触发 GitHub Release）。
 
 ## 技术栈
 
@@ -127,7 +126,7 @@ curl -X POST http://127.0.0.1:8787/api/setup \
   -H "X-Setup-Secret: <SETUP_SECRET>"
 ```
 
-本地数据只存在本机 D1（`worker/.wrangler/state`）。模板不带示例业务数据；要清空本地库（含验收账号与设置）：
+本地数据只存在本机 D1（`worker/.wrangler/state`）。本项目不带示例业务数据；要清空本地库（含验收账号与设置）：
 
 ```bash
 rm -rf worker/.wrangler/state
@@ -157,7 +156,7 @@ pnpm check:deploy   # 先 build:web，再 wrangler deploy --dry-run（不联网�
 
 ## 定时任务与 waker
 
-- `worker/wrangler.toml` 的 `[triggers] crons` 是唯一的原生定时入口（模板里是每天一次）；任务本身只有一个 no-op 日志与 D1 抢占示例，生成项目后往里加自己的 job。
+- `worker/wrangler.toml` 的 `[triggers] crons` 是唯一的原生定时入口（本项目里是每天一次）；任务本身只有一个 no-op 日志与 D1 抢占示例，往里加自己的 job。
 - 触发方式只由 `WAKER_SIGNING_KEY` 一个变量的取值决定，没有第二个模式开关：
   - 未配置（含空值、`*_PLACEHOLDER`）→ 原生 Cron 跑；
   - `false`（小写，保留值）→ 两个入口都不跑；
@@ -168,13 +167,9 @@ pnpm check:deploy   # 先 build:web，再 wrangler deploy --dry-run（不联网�
 
 - 仓库里只有占位符与键名：`worker/wrangler.toml` 不含真实 ID，`.dev.vars` 与 `build-info.json` 已 gitignore，README 不写任何密钥值。
 - 线上密钥只走 GitHub Secrets：部署时 `scripts/materialize-secrets.mjs` 把它们写进 `$RUNNER_TEMP/secrets.json`（权限 0600），再经 `wrangler deploy --secrets-file` 上传；脚本只打印键名，不打印值。
-- 模板不含示例业务表与种子数据；验收 / 截图用的账号只在本机 D1，清空方式见「本地开发」。
+- 本项目不含示例业务表与种子数据；验收 / 截图用的账号只在本机 D1，清空方式见「本地开发」。
 
 ## 部署
-
-### 模板仓的例外
-
-本仓没有生产目标：`deploy.yml` 只接受手动触发（`workflow_dispatch`），团队不会运行它。生成新项目后必须按「生成清单」第 6 步改回「push main 触发自动部署」，**不要保留模板的这一例外**。
 
 ### 凭证清单
 
@@ -198,67 +193,6 @@ pnpm check:deploy   # 先 build:web，再 wrangler deploy --dry-run（不联网�
 
 ### 部署流程
 
-1. 触发器：模板仓只有手动 `workflow_dispatch`（团队不运行），生成的项目按「生成清单」第 6 步改为 push main 触发自动部署。
+1. 触发器：push main 自动部署。
 2. `deploy.yml` 依次：安装依赖 → `materialize-secrets`（校验、写 secrets.json、解析 wrangler.toml）→ 构建前端 → `wrangler deploy --secrets-file`。
 3. 部署本身不跑迁移。部署完成后打开 `/setup` 用部署密钥跑一次迁移（或由管理员在「系统管理 → 数据库维护」点「检查并升级数据库」）。
-
-## 从本模板生成新项目（生成清单）
-
-按顺序做完：第 4 步的校验通过、第 8 步清掉模板专属内容，改名才算完成。
-
-1. **建仓**：在 GitHub 上「Use this template」→ Create a new repository（public）。仓库设置里的 Template repository 只属于模板仓。
-2. **改身份单点**（`worker/src/config/project.ts` + `worker/src/config/defaults.json`）：
-   - `PROJECT_NAME`：展示名；`PROJECT_SLUG`：仓库名 / Worker 名；
-   - `PROJECT_TAGLINE`：一句话说明（首页与「关于」页）；
-   - `DEFAULT_TABLE_PREFIX`：默认表前缀，在 **`worker/src/config/defaults.json` 的 `defaultTablePrefix`** 改（不含尾下划线；初始化前定死，之后不可改）——worker 运行时与部署脚本读同一份，只改这一处；
-   - `PROJECT_REPOSITORY_URL`：新仓地址；
-   - `APP_MODE`：默认 `multi`（多用户、开放注册）；改 `single` 则是单人档（注册关闭，setup 页创建唯一所有者）。
-3. **改令牌位置**（除这些位置外，全仓不得再出现旧项目名 / slug）：
-
-   | 文件                              | 改成                                 |
-   | --------------------------------- | ------------------------------------ |
-   | `worker/src/config/project.ts`    | 上一步的常量                         |
-   | `worker/src/config/defaults.json` | `defaultTablePrefix`（默认表前缀）   |
-   | `package.json`                    | `"name": "<slug>"`                   |
-   | `web/package.json`                | `"name": "<slug>-web"`               |
-   | `worker/wrangler.toml`            | `name = "<slug>"`                    |
-   | `web/index.html`                  | `<title><PROJECT_NAME></title>`      |
-   | `README.md`                       | 标题与一句话说明（本文件最上面两段） |
-
-4. **格式化并跑身份校验**：
-
-   ```bash
-   pnpm format        # 先格式化：短文案会让原先折行的常量被要求合并成一行
-   pnpm check:identity
-   ```
-
-   `scripts/check-identity.mjs` 做两件事：① 令牌位置必须与身份单点一致——`package.json` 与 `worker/wrangler.toml` 的 name 等于当前 slug，`web/package.json` 等于 `<slug>-web`，`web/index.html` 的 `<title>` 等于当前项目名，`README.md` 里出现当前项目名或 slug；② 扫描全仓（已跟踪 + 未跟踪但未忽略的文件，二进制跳过）：**白名单之外**出现**当前**项目名或 slug 才失败，并点名 `文件:行号`。输出「白名单外零残留」才算改名完成。
-
-   它只认当前身份：旧项目名 / 旧 slug 的残留它发现不了，`README.md` 这类令牌位置本身也不会被扫到。所以自己再扫一遍旧名（把 `<旧项目名>` / `<旧 slug>` 换成上一轮那个仓的展示名与仓库名），两条都无输出才算通过：
-
-   ```bash
-   grep -rIn --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=.wrangler "<旧项目名>" .
-   grep -rIn --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=.wrangler "<旧 slug>" .
-   ```
-
-5. **配凭证**：按「部署 → 凭证清单」设好 Secrets / Variables；`SETUP_SECRET` 与 `SIGNING_SECRET` 同级必填，`TABLE_PREFIX` 按项目定。
-
-6. **改回自动部署**：把 `.github/workflows/deploy.yml` 的 `on:` 从模板仓的「仅手动」改为 push main 触发自动部署，并删除模板仓专属的手动触发例外（规格 §8）。生成的项目不得保留这一例外：
-
-   ```yaml
-   on:
-     push:
-       branches: [main]
-   ```
-
-7. **首次部署与初始化**：把项目推到 `main`，等 `Deploy` 跑完，再打开 `/setup` 用部署密钥跑迁移，然后注册首个用户（自动成为管理员并批准）。初始化完成后 setup 页会自动关闭；需要再开时由管理员在「系统管理 → 数据库维护」打开。
-
-8. **收尾**：
-   - **清掉模板专属内容**（这份 README 是模板的 README，生成项目后不改就会自相矛盾）：
-     - 首段去掉「本仓是 GitHub **template repository**……」的自述，改成新项目的两句话介绍（`PROJECT_NAME` 与 `PROJECT_TAGLINE` 的展开）；
-     - 删掉「功能特性」里「**模板例外**：本仓自身没有生产目标……」这一条；
-     - 删掉「部署 → 模板仓的例外」整节，「部署流程」第 1 条改成「push main 自动部署」；
-     - 删掉整章「从本模板生成新项目（生成清单）」——它只对模板仓有意义；
-     - 再扫一遍其余「模板」措辞（本地开发的「模板不带示例业务数据」、定时任务的「模板里是每天一次」、密钥与数据的「模板不含示例业务表」），按本项目实际改写；「邮件模板」「Template repository」这类正常用法不在清理范围。
-   - 域名在项目自己的规格里定（模板不写域名）；把 `.github/assets/imgs/` 的截图换成本项目界面（同名覆盖）并同步「界面预览」；方案版本标注随方案同步更新。
-   - 改完 README 再跑一次 `pnpm format && pnpm check:identity`，最后 CI 全绿。
