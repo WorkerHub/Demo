@@ -65,6 +65,36 @@ describe("设置页", () => {
     )
   })
 
+  it("时区下拉只列常用时区", async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    await user.click(screen.getByRole("tab", { name: "偏好" }))
+    await user.click(screen.getByRole("combobox", { name: "时区" }))
+
+    const options = await screen.findAllByRole("option")
+    const labels = options.map((option) => option.textContent)
+    expect(labels).toContain("Asia/Shanghai")
+    expect(labels).toContain("America/New_York")
+    expect(labels).not.toContain("America/Adak")
+    expect(options.length).toBeLessThan(50)
+  })
+
+  it("已保存的时区不在常用列表时自动补到最前", async () => {
+    useAuthStore.setState({
+      user: me({ timezone: "America/Adak" }),
+      status: "ready"
+    })
+    const user = userEvent.setup()
+    renderSettings()
+
+    await user.click(screen.getByRole("tab", { name: "偏好" }))
+    await user.click(screen.getByRole("combobox", { name: "时区" }))
+
+    const options = await screen.findAllByRole("option")
+    expect(options[0].textContent).toBe("America/Adak")
+  })
+
   it("修改密码提交当前密码与新密码", async () => {
     const user = userEvent.setup()
     renderSettings()
