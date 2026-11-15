@@ -163,8 +163,9 @@ adminRoutes.post("/settings/test-email", async (c) => {
 
 adminRoutes.get("/users", async (c) => {
   // 目前只有「待批准」这一种筛选需求；参数保留给前端，取值不是 pending 时按 pending 处理。
+  // 列表包裹字段与 /api/me/passkeys 一致：冻结契约为 { items }。
   const prefix = getTablePrefix(c.env)
-  return c.json({ users: await listPendingUsers(c.env.DB, prefix) })
+  return c.json({ items: await listPendingUsers(c.env.DB, prefix) })
 })
 
 adminRoutes.post("/users/:id/approve", async (c) => {

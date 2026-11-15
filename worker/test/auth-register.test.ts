@@ -83,10 +83,10 @@ describe("注册：首个用户与审核", () => {
       headers: { cookie: admin }
     })
     const pendingBody = (await pending.json()) as {
-      users: Array<{ id: number; email: string }>
+      items: Array<{ id: number; email: string }>
     }
-    expect(pendingBody.users).toHaveLength(1)
-    const memberId = pendingBody.users[0].id
+    expect(pendingBody.items).toHaveLength(1)
+    const memberId = pendingBody.items[0].id
 
     const approve = await postJson(
       env,
@@ -133,8 +133,8 @@ describe("注册：首个用户与审核", () => {
     await registerUser(env, { email: "spam@example.test" })
     const pending = (await (
       await request(env, "/api/admin/users", { headers: { cookie: admin } })
-    ).json()) as { users: Array<{ id: number }> }
-    const id = pending.users[0].id
+    ).json()) as { items: Array<{ id: number }> }
+    const id = pending.items[0].id
 
     const reject = await postJson(
       env,
