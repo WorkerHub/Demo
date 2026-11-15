@@ -3,10 +3,15 @@
  * 顺带锁住两条硬约束：基线语句内部不得出现 `;`、表名一律由 tables.ts 拼装。
  */
 import { describe, expect, it } from "vitest"
-import { BASELINE_MIGRATION, getMigrations } from "../src/lib/migrations"
+import {
+  BASELINE_MIGRATION,
+  USERNAME_MIGRATION,
+  getMigrations
+} from "../src/lib/migrations"
 import { splitStatements } from "../src/lib/migrations-runner"
 import { ledgerName, runSetup } from "../src/lib/setup"
 import {
+  indexName,
   legacyMigrationsTable,
   migrationsTable,
   sessionsTable,
@@ -14,19 +19,32 @@ import {
   usersTable
 } from "../src/lib/tables"
 import { activePrefix, initializedContext, tableNames } from "./support/app"
+import type { SqliteD1 } from "./support/sqlite-d1"
 
 describe("迁移定义", () => {
-  it("只有一条基线迁移 schema_v1，语句内部不含分号", () => {
+  it("基线 schema_v1 后追加 schema_v2，语句内部不含分号", () => {
     const prefix = "wiki_"
     const migrations = getMigrations(prefix)
     expect(migrations.map((migration) => migration.name)).toEqual([
-      BASELINE_MIGRATION
+      BASELINE_MIGRATION,
+      USERNAME_MIGRATION
     ])
-    const statements = splitStatements(migrations[0].sql)
-    expect(statements.length).toBeGreaterThan(0)
-    for (const statement of statements) {
+    for (const migration of migrations) {
+      const statements = splitStatements(migration.sql)
+      expect(statements.length).toBeGreaterThan(0)
+      for (const statement of statements) {
+        expect(statement).not.toContain(";")
+      }
+    }
+    // 基线迁移建表；追加迁移只追加对象（加列在 prepare 里做）。
+    for (const statement of splitStatements(migrations[0].sql)) {
       expect(statement.startsWith("CREATE")).toBe(true)
     }
+    const usernameSql = migrations[1].sql
+    expect(usernameSql).toContain(indexName(prefix, "users_username"))
+    expect(usernameSql).toContain(usersTable(prefix))
+    expect(usernameSql).toContain("COLLATE NOCASE")
+    expect(usernameSql).toContain("WHERE username <> ''")
   })
 
   it("表名一律带生效前缀（没有任何无前缀表名）", () => {
@@ -72,7 +90,8 @@ describe("账本命名", () => {
     expect(again.success).toBe(true)
     if (again.success) {
       expect(again.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" }
+        { name: BASELINE_MIGRATION, status: "skipped" },
+        { name: USERNAME_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -93,7 +112,8 @@ describe("旧账本改名承接", () => {
     expect(result.success).toBe(true)
     if (result.success) {
       expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" }
+        { name: BASELINE_MIGRATION, status: "skipped" },
+        { name: USERNAME_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -104,7 +124,10 @@ describe("旧账本改名承接", () => {
     const rows = db.db
       .prepare(`SELECT name FROM ${migrationsTable(prefix)}`)
       .all() as Array<{ name: string }>
-    expect(rows.map((row) => row.name)).toEqual([BASELINE_MIGRATION])
+    expect(rows.map((row) => row.name)).toEqual([
+      BASELINE_MIGRATION,
+      USERNAME_MIGRATION
+    ])
   })
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，一个表都不动", async () => {
@@ -149,5 +172,125 @@ describe("旧账本改名承接", () => {
     expect(tableNames(db)).toContain(usersTable(prefix))
     expect(tableNames(db)).toContain(settingsTable(prefix))
     expect(tableNames(db)).toContain(sessionsTable(prefix))
+  })
+})
+
+describe("schema_v2：users.username", () => {
+  /** 把已升级的库还原成「只跑过 schema_v1」的存量库（删 v2 产物与账本记录）。 */
+  function downgradeToBaseline(db: SqliteD1, prefix: string): void {
+    db.db.exec(`DROP INDEX ${indexName(prefix, "users_username")}`)
+    db.db.exec(`ALTER TABLE ${usersTable(prefix)} DROP COLUMN username`)
+    db.db
+      .prepare(`DELETE FROM ${migrationsTable(prefix)} WHERE name = ?`)
+      .run(USERNAME_MIGRATION)
+  }
+
+  it("存量库补列与唯一索引：schema_v2 applied，已有行不受影响", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    const table = usersTable(prefix)
+
+    // 一条「升级前」就在的用户：只写 v1 有的列。
+    const now = new Date().toISOString()
+    db.db
+      .prepare(
+        `INSERT INTO ${table}
+          (email, password_hash, role, status, email_verified, language,
+           display_name, timezone, theme, created_at, updated_at)
+         VALUES (?, 'hash', 'user', 'active', 1, 'zh', 'Legacy', 'Asia/Shanghai', 'system', ?, ?)`
+      )
+      .run("legacy@example.test", now, now)
+
+    downgradeToBaseline(db, prefix)
+    const columnsBefore = db.db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .map((column) => (column as { name: string }).name)
+    expect(columnsBefore).not.toContain("username")
+
+    const result = await runSetup(env)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.migrations).toEqual([
+        { name: BASELINE_MIGRATION, status: "skipped" },
+        { name: USERNAME_MIGRATION, status: "applied" }
+      ])
+    }
+
+    const columns = db.db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .map((column) => (column as { name: string }).name)
+    expect(columns).toContain("username")
+
+    const row = db.db
+      .prepare(
+        `SELECT email, display_name, username FROM ${table} WHERE email = ?`
+      )
+      .get("legacy@example.test")
+    expect(row).toEqual({
+      email: "legacy@example.test",
+      display_name: "Legacy",
+      username: ""
+    })
+
+    const index = db.db
+      .prepare(`SELECT name FROM sqlite_master WHERE type='index' AND name = ?`)
+      .get(indexName(prefix, "users_username"))
+    expect(index).toBeTruthy()
+
+    // 存量行不加名也能并存（部分唯一索引），名字重复则由索引拒绝。
+    expect(() =>
+      db.db
+        .prepare(
+          `INSERT INTO ${table}
+            (email, password_hash, role, status, email_verified, language,
+             display_name, username, timezone, theme, created_at, updated_at)
+           VALUES ('second@example.test', 'hash', 'user', 'active', 1, 'zh',
+             '', '', 'Asia/Shanghai', 'system', ?, ?)`
+        )
+        .run(now, now)
+    ).not.toThrow()
+    expect(() =>
+      db.db
+        .prepare(
+          `UPDATE ${table} SET username = 'owner' WHERE email = 'legacy@example.test'`
+        )
+        .run()
+    ).not.toThrow()
+    expect(() =>
+      db.db
+        .prepare(
+          `UPDATE ${table} SET username = 'Owner' WHERE email = 'second@example.test'`
+        )
+        .run()
+    ).toThrow(/UNIQUE/i)
+  })
+
+  it("列已加、索引未建的中断：重跑只补索引，不报 duplicate column", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+
+    // 模拟 prepare 成功、sql 失败后的状态：列留、索引与账本记录都不在。
+    db.db.exec(`DROP INDEX ${indexName(prefix, "users_username")}`)
+    db.db
+      .prepare(`DELETE FROM ${migrationsTable(prefix)} WHERE name = ?`)
+      .run(USERNAME_MIGRATION)
+
+    const result = await runSetup(env)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.migrations).toEqual([
+        { name: BASELINE_MIGRATION, status: "skipped" },
+        { name: USERNAME_MIGRATION, status: "applied" }
+      ])
+    }
+    expect(
+      db.db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='index' AND name = ?`
+        )
+        .get(indexName(prefix, "users_username"))
+    ).toBeTruthy()
   })
 })
