@@ -293,7 +293,23 @@
       "rejected": "Rejected",
       "requestedAt": "Requested {{date}}",
       "displayName": "Name",
-      "actions": "Actions"
+      "actions": "Actions",
+      "create": {
+        "title": "Create user",
+        "email": "Email",
+        "role": "Role",
+        "displayName": "Display name (optional)",
+        "username": "Username (optional)",
+        "submit": "Create user",
+        "creating": "Creating…",
+        "emailRequired": "Enter an email address",
+        "createdTitle": "User created",
+        "password": "Initial password",
+        "passwordOnce": "This password is shown once. It cannot be viewed again after you close this.",
+        "copy": "Copy",
+        "copied": "Copied",
+        "copyFailed": "Copy failed — select the password and copy it manually"
+      }
     },
     "maintenance": {
       "title": "Database",

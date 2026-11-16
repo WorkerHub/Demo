@@ -4,6 +4,7 @@ import { adminApi } from "@/lib/api"
 import { describeApiError } from "@/lib/api-errors"
 import type { AdminSettings } from "@/lib/api-types"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CreateUserSection } from "@/pages/admin/create-user-section"
 import { EmailSection } from "@/pages/admin/email-section"
 import { MaintenanceSection } from "@/pages/admin/maintenance-section"
 import { RegistrationSection } from "@/pages/admin/registration-section"
@@ -64,7 +65,10 @@ export function AdminPage() {
             <RegistrationSection settings={settings} onSaved={setSettings} />
           </TabsContent>
           <TabsContent value="users" className="pt-4">
-            <UsersSection />
+            <div className="space-y-4">
+              <CreateUserSection />
+              <UsersSection />
+            </div>
           </TabsContent>
           <TabsContent value="maintenance" className="pt-4">
             <MaintenanceSection settings={settings} onSaved={setSettings} />
