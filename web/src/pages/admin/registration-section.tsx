@@ -121,17 +121,6 @@ export function RegistrationSection({
           />
         </label>
 
-        <label className="flex items-center justify-between gap-4 text-sm">
-          <span>{t("admin.registration.lockUsername")}</span>
-          <Switch
-            checked={settings.profileLocks.usernameLocked}
-            disabled={busy}
-            onCheckedChange={(checked) =>
-              void updateLocks({ usernameLocked: checked })
-            }
-          />
-        </label>
-
         {error ? (
           <p role="alert" className="text-sm text-destructive">
             {error}

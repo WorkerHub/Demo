@@ -131,14 +131,7 @@ export function UsersSection() {
                   </div>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  <div className="flex flex-col">
-                    <span>{user.displayName || "—"}</span>
-                    {user.username ? (
-                      <span className="text-xs text-muted-foreground">
-                        @{user.username}
-                      </span>
-                    ) : null}
-                  </div>
+                  <span>{user.displayName || "—"}</span>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <Badge variant={ROLE_VARIANT[user.role]}>

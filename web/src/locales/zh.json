@@ -71,13 +71,10 @@
       "EMAIL_SEND_FAILED": "邮件发送失败",
       "INVALID_EMAIL": "邮箱格式不正确",
       "INVALID_PASSWORD": "密码不符合要求",
-      "INVALID_USERNAME": "用户名格式不正确",
-      "USERNAME_TAKEN": "该用户名已被占用",
       "UNAUTHORIZED": "请先登录",
       "FORBIDDEN": "没有权限执行该操作",
       "PASSWORD_INCORRECT": "当前密码不正确",
-      "DISPLAY_NAME_LOCKED": "昵称已被禁止修改",
-      "USERNAME_LOCKED": "用户名已被禁止修改"
+      "DISPLAY_NAME_LOCKED": "昵称已被禁止修改"
     }
   },
   "home": {
@@ -215,7 +212,6 @@
   "profile": {
     "title": "个人资料",
     "displayName": "昵称",
-    "username": "用户名",
     "email": "邮箱",
     "emailVerified": "已验证",
     "emailUnverified": "未验证",
@@ -276,7 +272,6 @@
     },
     "registration": {
       "lockDisplayName": "禁止修改用户昵称",
-      "lockUsername": "禁止修改用户名",
       "title": "注册与审核",
       "enabled": "开放注册",
       "approvalRequired": "注册需要管理员批准",
@@ -303,7 +298,6 @@
         "email": "邮箱",
         "role": "角色",
         "displayName": "昵称（可选）",
-        "username": "用户名（可选）",
         "submit": "创建用户",
         "creating": "创建中…",
         "emailRequired": "请输入邮箱",

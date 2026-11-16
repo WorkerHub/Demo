@@ -71,13 +71,10 @@
       "EMAIL_SEND_FAILED": "Failed to send email",
       "INVALID_EMAIL": "Invalid email format",
       "INVALID_PASSWORD": "Password does not meet the requirements",
-      "INVALID_USERNAME": "Invalid username",
-      "USERNAME_TAKEN": "That username is taken",
       "UNAUTHORIZED": "Please sign in first",
       "FORBIDDEN": "You do not have permission for this action",
       "PASSWORD_INCORRECT": "Current password is incorrect",
-      "DISPLAY_NAME_LOCKED": "Display name editing is locked",
-      "USERNAME_LOCKED": "Username editing is locked"
+      "DISPLAY_NAME_LOCKED": "Display name editing is locked"
     }
   },
   "home": {
@@ -215,7 +212,6 @@
   "profile": {
     "title": "Profile",
     "displayName": "Nickname",
-    "username": "Username",
     "email": "Email",
     "emailVerified": "Verified",
     "emailUnverified": "Unverified",
@@ -276,7 +272,6 @@
     },
     "registration": {
       "lockDisplayName": "Lock display name",
-      "lockUsername": "Lock username",
       "title": "Registration and approval",
       "enabled": "Registration open",
       "approvalRequired": "New users need admin approval",
@@ -303,7 +298,6 @@
         "email": "Email",
         "role": "Role",
         "displayName": "Display name (optional)",
-        "username": "Username (optional)",
         "submit": "Create user",
         "creating": "Creating…",
         "emailRequired": "Enter an email address",

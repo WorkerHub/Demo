@@ -5,6 +5,7 @@ import { me } from "@/test/fixtures"
 import { ProfilePage } from "@/pages/profile"
 import { useAuthStore } from "@/stores/auth"
 import type { Me } from "@/lib/api-types"
+import { ApiError, meApi } from "@/lib/api"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -17,31 +18,28 @@ vi.mock("@/lib/api", async (importOriginal) => {
   }
 })
 
-const { ApiError, meApi } = await import("@/lib/api")
-
 beforeEach(() => {
   useAuthStore.setState({ user: me(), status: "ready" })
   vi.mocked(meApi.update).mockResolvedValue(me())
 })
 
 describe("个人资料页", () => {
-  it("默认只读展示昵称与用户名，编辑按钮可用", () => {
+  it("默认只读展示昵称，编辑按钮可用", () => {
     useAuthStore.setState({
-      user: me({ displayName: "Owner", username: "水手" }),
+      user: me({ displayName: "船长" }),
       status: "ready"
     })
     render(<ProfilePage />)
 
-    expect(screen.getByText("Owner")).toBeInTheDocument()
-    expect(screen.getByText("水手")).toBeInTheDocument()
+    expect(screen.getByText("船长")).toBeInTheDocument()
+    expect(screen.queryByText("用户名")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("昵称")).not.toBeInTheDocument()
-    expect(screen.queryByLabelText("用户名")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "编辑" })).toBeEnabled()
   })
 
-  it("点「编辑」后出现输入框并回填当前值", async () => {
+  it("点「编辑」后只出现昵称输入框并回填当前值", async () => {
     useAuthStore.setState({
-      user: me({ displayName: "Owner", username: "水手" }),
+      user: me({ displayName: "Owner" }),
       status: "ready"
     })
     const user = userEvent.setup()
@@ -50,78 +48,51 @@ describe("个人资料页", () => {
     await user.click(screen.getByRole("button", { name: "编辑" }))
 
     expect(screen.getByLabelText("昵称")).toHaveValue("Owner")
-    expect(screen.getByLabelText("用户名")).toHaveValue("水手")
-  })
-
-  it("改用户名后提交 displayName 与 username 并回到只读展示", async () => {
-    vi.mocked(meApi.update).mockResolvedValue(me({ username: "水手" }))
-    const user = userEvent.setup()
-    render(<ProfilePage />)
-
-    await user.click(screen.getByRole("button", { name: "编辑" }))
-    await user.type(screen.getByLabelText("用户名"), "水手")
-    await user.click(screen.getByRole("button", { name: "保存" }))
-
-    await waitFor(() =>
-      expect(meApi.update).toHaveBeenCalledWith({
-        displayName: "Owner",
-        username: "水手"
-      })
-    )
-    expect(await screen.findByText("水手")).toBeInTheDocument()
     expect(screen.queryByLabelText("用户名")).not.toBeInTheDocument()
   })
 
-  it("未改用户名时请求体不带 username", async () => {
+  it("改昵称后提交 displayName 并回到只读展示", async () => {
+    vi.mocked(meApi.update).mockResolvedValue(me({ displayName: "船长" }))
     const user = userEvent.setup()
     render(<ProfilePage />)
 
     await user.click(screen.getByRole("button", { name: "编辑" }))
+    const input = screen.getByLabelText("昵称")
+    await user.clear(input)
+    await user.type(input, "船长")
     await user.click(screen.getByRole("button", { name: "保存" }))
 
     await waitFor(() =>
-      expect(meApi.update).toHaveBeenCalledWith({ displayName: "Owner" })
+      expect(meApi.update).toHaveBeenCalledWith({ displayName: "船长" })
     )
+    expect(await screen.findByText("船长")).toBeInTheDocument()
+    expect(screen.queryByLabelText("昵称")).not.toBeInTheDocument()
   })
 
-  it("用户名被占用时显示对应错误文案", async () => {
+  it("保存失败时就地显示稳定错误文案并保留输入", async () => {
     vi.mocked(meApi.update).mockRejectedValue(
       new ApiError({
-        status: 409,
-        code: "USERNAME_TAKEN",
-        message: "Username taken"
+        status: 403,
+        code: "DISPLAY_NAME_LOCKED",
+        message: "Display name is locked"
       })
     )
     const user = userEvent.setup()
     render(<ProfilePage />)
 
     await user.click(screen.getByRole("button", { name: "编辑" }))
-    await user.type(screen.getByLabelText("用户名"), "水手")
+    await user.type(screen.getByLabelText("昵称"), "船长")
     await user.click(screen.getByRole("button", { name: "保存" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "该用户名已被占用"
+      "昵称已被禁止修改"
     )
-    expect(screen.getByLabelText("用户名")).toHaveValue("水手")
+    expect(screen.getByLabelText("昵称")).toHaveValue("Owner船长")
   })
 
   it("锁定昵称时编辑按钮置灰", () => {
     useAuthStore.setState({
-      user: me({
-        profileLocks: { displayNameLocked: true, usernameLocked: false }
-      }),
-      status: "ready"
-    })
-    render(<ProfilePage />)
-
-    expect(screen.getByRole("button", { name: "编辑" })).toBeDisabled()
-  })
-
-  it("仅锁定用户名时编辑按钮同样置灰", () => {
-    useAuthStore.setState({
-      user: me({
-        profileLocks: { displayNameLocked: false, usernameLocked: true }
-      }),
+      user: me({ profileLocks: { displayNameLocked: true } }),
       status: "ready"
     })
     render(<ProfilePage />)
@@ -134,20 +105,19 @@ describe("个人资料页", () => {
     render(<ProfilePage />)
 
     await user.click(screen.getByRole("button", { name: "编辑" }))
-    await user.type(screen.getByLabelText("用户名"), "水手")
+    await user.type(screen.getByLabelText("昵称"), "船长")
     await user.click(screen.getByRole("button", { name: "取消" }))
 
     expect(meApi.update).not.toHaveBeenCalled()
-    expect(screen.queryByLabelText("用户名")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("昵称")).not.toBeInTheDocument()
   })
 
   it("保存期间取消按钮不可点", async () => {
     let resolveUpdate: (value: Me) => void = () => {}
-    vi.mocked(meApi.update).mockReturnValue(
-      new Promise<Me>((resolve) => {
-        resolveUpdate = resolve
-      })
-    )
+    const pending = new Promise<Me>((resolve) => {
+      resolveUpdate = resolve
+    })
+    vi.mocked(meApi.update).mockReturnValue(pending)
     const user = userEvent.setup()
     render(<ProfilePage />)
 
@@ -160,7 +130,7 @@ describe("个人资料页", () => {
       resolveUpdate(me())
     })
     await waitFor(() =>
-      expect(screen.queryByLabelText("用户名")).not.toBeInTheDocument()
+      expect(screen.queryByLabelText("昵称")).not.toBeInTheDocument()
     )
   })
 })

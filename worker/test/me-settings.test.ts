@@ -87,6 +87,29 @@ describe("个人设置", () => {
     expect(after).toEqual(before)
   })
 
+  it("用户名不再是账号字段：GET 不返回 username，PUT 里出现 username 被忽略", async () => {
+    const { env } = await initializedContext()
+    const { cookie } = await registerAndLogin(env, {
+      email: "owner@example.test"
+    })
+
+    const before = (await (
+      await request(env, "/api/me", { headers: { cookie } })
+    ).json()) as Record<string, unknown>
+    expect(before).not.toHaveProperty("username")
+
+    const res = await putJson(
+      env,
+      "/api/me",
+      { username: "captain_01" },
+      { cookie }
+    )
+    expect(res.status).toBe(200)
+    const after = (await res.json()) as Record<string, unknown>
+    expect(after).not.toHaveProperty("username")
+    expect(after).toEqual(before)
+  })
+
   it("改密：当前密码错 403；成功后其它会话失效、当前会话保留", async () => {
     const { env } = await initializedContext()
     const { cookie } = await registerAndLogin(env, {

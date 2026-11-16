@@ -266,6 +266,7 @@ describe("系统管理", () => {
     await user.click(
       await screen.findByRole("switch", { name: "禁止修改用户昵称" })
     )
+    expect(screen.queryByText("禁止修改用户名")).not.toBeInTheDocument()
 
     expect(adminApi.updateSettings).toHaveBeenCalledWith({
       profileLocks: { displayNameLocked: true }
@@ -280,6 +281,9 @@ describe("系统管理", () => {
     const user = userEvent.setup()
     renderAdmin()
     await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+
+    expect(screen.getByLabelText("昵称（可选）")).toBeInTheDocument()
+    expect(screen.queryByLabelText("用户名（可选）")).not.toBeInTheDocument()
 
     await user.type(screen.getByLabelText("邮箱"), "new@example.com")
     await user.click(screen.getByRole("radio", { name: "管理员" }))

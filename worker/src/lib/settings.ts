@@ -123,23 +123,20 @@ export async function writeRegistrationSettings(
   return { ok: true }
 }
 
-/** 个人资料修改锁（昵称/用户名各自独立，默认关闭）。 */
+/** 个人资料修改锁（昵称，默认关闭）。 */
 export interface ProfileLockSettings {
   displayNameLocked: boolean
-  usernameLocked: boolean
 }
 
 export interface ProfileLockSettingsPatch {
   displayNameLocked?: boolean
-  usernameLocked?: boolean
 }
 
 export async function readProfileLockSettings(
   env: Env
 ): Promise<ProfileLockSettings> {
   return {
-    displayNameLocked: await getFlag(env, "profile_display_name_locked", false),
-    usernameLocked: await getFlag(env, "profile_username_locked", false)
+    displayNameLocked: await getFlag(env, "profile_display_name_locked", false)
   }
 }
 
@@ -150,9 +147,6 @@ export async function writeProfileLockSettings(
 ): Promise<void> {
   if (patch.displayNameLocked !== undefined) {
     await setFlag(env, "profile_display_name_locked", patch.displayNameLocked)
-  }
-  if (patch.usernameLocked !== undefined) {
-    await setFlag(env, "profile_username_locked", patch.usernameLocked)
   }
 }
 
