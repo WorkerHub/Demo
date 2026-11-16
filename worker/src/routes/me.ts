@@ -26,6 +26,7 @@ import {
 } from "../db/queries/users"
 import { currentUserId, requirePassword } from "../lib/account"
 import { apiError, readJsonBody } from "../lib/http"
+import { readProfileLockSettings } from "../lib/settings"
 import { getTablePrefix } from "../lib/table-prefix"
 import { buildUserView } from "../lib/user-view"
 import { normalizeUsername } from "../lib/username"
@@ -69,7 +70,15 @@ async function updateProfile(c: Ctx): Promise<Response> {
 
   const prefix = getTablePrefix(c.env)
   const userId = currentUserId(c)
+  const locks = await readProfileLockSettings(c.env)
   const patch: Parameters<typeof updateUserFields>[3] = {}
+
+  if (body.displayName !== undefined && locks.displayNameLocked) {
+    return apiError(c, 403, "DISPLAY_NAME_LOCKED", "Display name is locked")
+  }
+  if (body.username !== undefined && locks.usernameLocked) {
+    return apiError(c, 403, "USERNAME_LOCKED", "Username is locked")
+  }
 
   if (body.displayName !== undefined) {
     if (typeof body.displayName !== "string") {
