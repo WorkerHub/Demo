@@ -16,16 +16,54 @@ import { describeApiError } from "@/lib/api-errors"
 import { themeToAccount } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
 
-function supportedTimeZones(): string[] {
-  const intl = Intl as unknown as {
-    supportedValuesOf?: (key: string) => string[]
-  }
-  try {
-    return intl.supportedValuesOf ? intl.supportedValuesOf("timeZone") : []
-  } catch {
-    return []
-  }
-}
+/**
+ * 常用时区（IANA 标识，按 UTC 偏移自西向东排序）。
+ *
+ * 替代原先 `Intl.supportedValuesOf("timeZone")` 拉取的全部时区（约 400 项）；
+ * 用户已保存的时区若不在本列表内，仍会由 useMemo 自动补到最前。
+ */
+const COMMON_TIME_ZONES: string[] = [
+  "Pacific/Honolulu",
+  "America/Los_Angeles",
+  "America/Denver",
+  "America/Chicago",
+  "America/Mexico_City",
+  "America/New_York",
+  "America/Toronto",
+  "America/Santiago",
+  "America/Sao_Paulo",
+  "America/Buenos_Aires",
+  "UTC",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Madrid",
+  "Europe/Rome",
+  "Africa/Lagos",
+  "Africa/Cairo",
+  "Europe/Athens",
+  "Africa/Johannesburg",
+  "Europe/Istanbul",
+  "Europe/Moscow",
+  "Asia/Dubai",
+  "Asia/Karachi",
+  "Asia/Kolkata",
+  "Asia/Dhaka",
+  "Asia/Bangkok",
+  "Asia/Jakarta",
+  "Asia/Singapore",
+  "Asia/Kuala_Lumpur",
+  "Asia/Hong_Kong",
+  "Asia/Shanghai",
+  "Asia/Taipei",
+  "Asia/Manila",
+  "Australia/Perth",
+  "Asia/Seoul",
+  "Asia/Tokyo",
+  "Australia/Sydney",
+  "Australia/Melbourne",
+  "Pacific/Auckland"
+]
 
 /**
  * 设置 · 偏好：语言、主题、时区。
@@ -40,9 +78,10 @@ export function PreferencesSection() {
   const [error, setError] = useState("")
 
   const zones = useMemo(() => {
-    const list = supportedTimeZones()
-    if (!user?.timezone) return list
-    return list.includes(user.timezone) ? list : [user.timezone, ...list]
+    if (!user?.timezone) return COMMON_TIME_ZONES
+    return COMMON_TIME_ZONES.includes(user.timezone)
+      ? COMMON_TIME_ZONES
+      : [user.timezone, ...COMMON_TIME_ZONES]
   }, [user?.timezone])
 
   const persist = async (

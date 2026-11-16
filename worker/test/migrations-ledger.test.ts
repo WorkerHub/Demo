@@ -185,6 +185,14 @@ describe("schema_v2：users.username", () => {
       .run(USERNAME_MIGRATION)
   }
 
+  /** 表当前的列名（按表定义顺序）。 */
+  function columnNames(db: SqliteD1, table: string): string[] {
+    return db.db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all<{ name: string }>()
+      .map((column) => column.name)
+  }
+
   it("存量库补列与唯一索引：schema_v2 applied，已有行不受影响", async () => {
     const { env, db } = await initializedContext()
     const prefix = activePrefix(env)
@@ -202,11 +210,7 @@ describe("schema_v2：users.username", () => {
       .run("legacy@example.test", now, now)
 
     downgradeToBaseline(db, prefix)
-    const columnsBefore = db.db
-      .prepare(`PRAGMA table_info(${table})`)
-      .all()
-      .map((column) => (column as { name: string }).name)
-    expect(columnsBefore).not.toContain("username")
+    expect(columnNames(db, table)).not.toContain("username")
 
     const result = await runSetup(env)
     expect(result.success).toBe(true)
@@ -217,11 +221,7 @@ describe("schema_v2：users.username", () => {
       ])
     }
 
-    const columns = db.db
-      .prepare(`PRAGMA table_info(${table})`)
-      .all()
-      .map((column) => (column as { name: string }).name)
-    expect(columns).toContain("username")
+    expect(columnNames(db, table)).toContain("username")
 
     const row = db.db
       .prepare(
