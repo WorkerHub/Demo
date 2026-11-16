@@ -26,6 +26,7 @@ describe("系统管理面", () => {
   it("未登录 401、非管理员 403", async () => {
     const { env, db } = await initializedContext()
     expect((await request(env, "/api/admin/settings")).status).toBe(401)
+    expect((await request(env, "/api/admin/users")).status).toBe(401)
 
     await registerUser(env, { email: "owner@example.test" })
     await registerUser(env, { email: "member@example.test" })
@@ -43,6 +44,10 @@ describe("系统管理面", () => {
       headers: { cookie: member }
     })
     expect(res.status).toBe(403)
+    const list = await request(env, "/api/admin/users", {
+      headers: { cookie: member }
+    })
+    expect(list.status).toBe(403)
   })
 
   it("GET 设置文档：结构化、凭据脱敏、开关默认值符合规格", async () => {
@@ -181,6 +186,86 @@ describe("系统管理面", () => {
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" }
     ])
+  })
+})
+
+describe("全量用户列表", () => {
+  it("返回管理员自己、待批准与停用账号，按 id 升序且只含契约字段", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+    await registerUser(env, { email: "pending@example.test" })
+    await registerUser(env, { email: "gone@example.test" })
+    db.db
+      .prepare(
+        `UPDATE ${usersTable(prefix)} SET status = 'disabled' WHERE email = ?`
+      )
+      .run("gone@example.test")
+
+    const res = await request(env, "/api/admin/users", {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      items: Array<Record<string, unknown>>
+    }
+
+    expect(body.items.map((item) => item.email)).toEqual([
+      "owner@example.test",
+      "pending@example.test",
+      "gone@example.test"
+    ])
+    expect(body.items.map((item) => item.status)).toEqual([
+      "active",
+      "pending",
+      "disabled"
+    ])
+    expect(body.items.map((item) => item.role)).toEqual([
+      "admin",
+      "user",
+      "user"
+    ])
+    for (const item of body.items) {
+      expect(Object.keys(item).sort()).toEqual([
+        "createdAt",
+        "displayName",
+        "email",
+        "emailVerified",
+        "id",
+        "role",
+        "status",
+        "username"
+      ])
+      expect(typeof item.emailVerified).toBe("boolean")
+      expect(item).not.toHaveProperty("password_hash")
+      expect(item).not.toHaveProperty("language")
+    }
+  })
+
+  it("status 过滤：pending 只回待批准，未知值 400", async () => {
+    const { env } = await initializedContext()
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+    await registerUser(env, { email: "pending@example.test" })
+
+    const pending = await request(env, "/api/admin/users?status=pending", {
+      headers: { cookie: admin }
+    })
+    expect(pending.status).toBe(200)
+    const pendingBody = (await pending.json()) as {
+      items: Array<{ email: string }>
+    }
+    expect(pendingBody.items.map((item) => item.email)).toEqual([
+      "pending@example.test"
+    ])
+
+    const invalid = await request(env, "/api/admin/users?status=bogus", {
+      headers: { cookie: admin }
+    })
+    expect(invalid.status).toBe(400)
+    const invalidBody = (await invalid.json()) as { code: string }
+    expect(invalidBody.code).toBe("INVALID_STATUS")
   })
 })
 
