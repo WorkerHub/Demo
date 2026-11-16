@@ -163,37 +163,51 @@ export async function isUsernameTaken(
   return row !== null
 }
 
-export interface PendingUserView {
+export function isUserStatus(value: string): value is UserStatus {
+  return value === "pending" || value === "active" || value === "disabled"
+}
+
+export interface AdminUserView {
   id: number
   email: string
   displayName: string
-  language: string
+  username: string
+  role: UserRole
+  status: UserStatus
+  emailVerified: boolean
   createdAt: string
 }
 
-export async function listPendingUsers(
+/** 管理员用户列表：全量（可按状态过滤），按 id 升序。 */
+export async function listUsers(
   db: D1Database,
-  prefix: string
-): Promise<PendingUserView[]> {
-  const rows = await db
-    .prepare(
-      `SELECT id, email, display_name, language, created_at
-         FROM ${usersTable(prefix)}
-        WHERE status = 'pending'
-        ORDER BY id ASC`
-    )
-    .all<{
-      id: number
-      email: string
-      display_name: string
-      language: string
-      created_at: string
-    }>()
+  prefix: string,
+  status?: UserStatus
+): Promise<AdminUserView[]> {
+  const statement = db.prepare(
+    `SELECT id, email, display_name, username, role, status, email_verified, created_at
+       FROM ${usersTable(prefix)}
+      ${status ? "WHERE status = ?" : ""}
+      ORDER BY id ASC`
+  )
+  const rows = await (status ? statement.bind(status) : statement).all<{
+    id: number
+    email: string
+    display_name: string
+    username: string
+    role: UserRole
+    status: UserStatus
+    email_verified: number
+    created_at: string
+  }>()
   return rows.results.map((row) => ({
     id: row.id,
     email: row.email,
     displayName: row.display_name,
-    language: row.language,
+    username: row.username,
+    role: row.role,
+    status: row.status,
+    emailVerified: row.email_verified === 1,
     createdAt: row.created_at
   }))
 }

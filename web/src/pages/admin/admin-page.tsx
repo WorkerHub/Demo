@@ -11,7 +11,7 @@ import { RegistrationSection } from "@/pages/admin/registration-section"
 import { UsersSection } from "@/pages/admin/users-section"
 
 /**
- * 系统管理页（规格 §6.1，仅管理员）：邮件配置、注册/审核、待批准用户、
+ * 系统管理页（规格 §6.1，仅管理员）：邮件配置、注册/审核、用户列表、
  * setup 页开关与数据库维护。菜单隐藏只是体验，接口层 403 才是边界。
  */
 export function AdminPage() {

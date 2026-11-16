@@ -1,8 +1,8 @@
 import type {
   AdminCreateUserResult,
   AdminSettings,
+  AdminUser,
   Me,
-  PendingUser,
   PublicInfo,
   SetupState
 } from "@/lib/api-types"
@@ -80,11 +80,15 @@ export function adminSettings(
   }
 }
 
-export function pendingUser(overrides: Partial<PendingUser> = {}): PendingUser {
+export function adminUser(overrides: Partial<AdminUser> = {}): AdminUser {
   return {
     id: 2,
-    email: "pending@example.com",
-    displayName: "Pending",
+    email: "user@example.com",
+    displayName: "User",
+    username: "",
+    role: "user",
+    status: "active",
+    emailVerified: true,
     createdAt: "2026-01-02T03:04:05.000Z",
     ...overrides
   }

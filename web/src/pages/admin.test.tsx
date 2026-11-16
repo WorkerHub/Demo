@@ -3,12 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
-import {
-  adminCreatedUser,
-  adminSettings,
-  me,
-  pendingUser
-} from "@/test/fixtures"
+import { adminCreatedUser, adminSettings, adminUser, me } from "@/test/fixtures"
 import { AdminPage } from "@/pages/admin/admin-page"
 import { useAuthStore } from "@/stores/auth"
 
@@ -22,7 +17,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       updateSettings: vi.fn(),
       testEmail: vi.fn(),
       createUser: vi.fn(),
-      pendingUsers: vi.fn(),
+      users: vi.fn(),
       approveUser: vi.fn(),
       rejectUser: vi.fn(),
       runSetup: vi.fn()
@@ -43,7 +38,7 @@ function renderAdmin() {
 
 beforeEach(() => {
   useAuthStore.setState({ user: me(), status: "ready" })
-  vi.mocked(adminApi.pendingUsers).mockResolvedValue({ items: [] })
+  vi.mocked(adminApi.users).mockResolvedValue({ items: [] })
   vi.mocked(adminApi.createUser).mockReset()
 })
 
@@ -180,10 +175,25 @@ describe("系统管理", () => {
     ).toBeInTheDocument()
   })
 
-  it("待批准用户可批准，列表随后刷新", async () => {
+  it("全部用户列表含自己、新建用户与待批准用户，仅待批准行可批准", async () => {
     vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
-    vi.mocked(adminApi.pendingUsers).mockResolvedValue({
-      items: [pendingUser()]
+    vi.mocked(adminApi.users).mockResolvedValue({
+      items: [
+        adminUser({
+          id: 1,
+          email: "owner@example.com",
+          displayName: "Owner",
+          role: "admin"
+        }),
+        adminUser(),
+        adminUser({
+          id: 3,
+          email: "pending@example.com",
+          displayName: "Pending",
+          status: "pending",
+          emailVerified: false
+        })
+      ]
     })
     vi.mocked(adminApi.approveUser).mockResolvedValue({ success: true })
 
@@ -191,10 +201,40 @@ describe("系统管理", () => {
     renderAdmin()
 
     await user.click(await screen.findByRole("tab", { name: "用户管理" }))
-    expect(await screen.findByText("pending@example.com")).toBeInTheDocument()
+    expect(await screen.findByText("owner@example.com")).toBeInTheDocument()
+    expect(screen.getByText("user@example.com")).toBeInTheDocument()
+    expect(screen.getByText("pending@example.com")).toBeInTheDocument()
+    expect(screen.getByText("我")).toBeInTheDocument()
+    expect(screen.getByText("邮箱未验证")).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: "批准" })).toHaveLength(1)
+
     await user.click(screen.getByRole("button", { name: "批准" }))
 
-    await waitFor(() => expect(adminApi.approveUser).toHaveBeenCalledWith(2))
+    await waitFor(() => expect(adminApi.approveUser).toHaveBeenCalledWith(3))
+    await waitFor(() => expect(adminApi.users).toHaveBeenCalledTimes(2))
+  })
+
+  it("用户列表为空时显示暂无用户", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+
+    expect(await screen.findByText("暂无用户")).toBeInTheDocument()
+  })
+
+  it("用户列表加载失败时就地报错", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.users).mockRejectedValue(
+      new ApiError({ status: 500, message: "boom" })
+    )
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("操作失败")
   })
 
   it("数据库维护回显生效前缀与迁移结果", async () => {
