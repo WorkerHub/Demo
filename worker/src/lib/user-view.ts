@@ -13,6 +13,8 @@ import type { Env } from "../types"
 export interface UserView {
   id: number
   email: string
+  /** 自定义用户名；`''` = 未设置（前端回退到 displayName / email 首字）。 */
+  username: string
   displayName: string
   role: string
   status: string
@@ -35,6 +37,7 @@ export async function buildUserView(
   return {
     id: user.id,
     email: user.email,
+    username: user.username,
     displayName: user.display_name,
     role: user.role,
     status: user.status,
