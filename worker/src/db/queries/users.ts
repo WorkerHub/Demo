@@ -25,10 +25,12 @@ export interface UserRow {
   theme: string
   created_at: string
   updated_at: string
+  /** 首登强制改密标记：1 = 需改密（管理员建号），0 = 无需。 */
+  must_change_password: number
 }
 
 const USER_COLUMNS = `id, email, username, password_hash, role, status, email_verified,
-  language, display_name, timezone, theme, created_at, updated_at`
+  language, display_name, timezone, theme, created_at, updated_at, must_change_password`
 
 export async function findUserByEmail(
   db: D1Database,
@@ -109,7 +111,8 @@ const UPDATABLE_FIELDS = [
   "display_name",
   "username",
   "timezone",
-  "theme"
+  "theme",
+  "must_change_password"
 ] as const
 
 export type UpdatableField = (typeof UPDATABLE_FIELDS)[number]
@@ -272,5 +275,49 @@ export async function insertOwner(
 
   const user = await findUserByEmail(db, prefix, input.email)
   if (!user) throw new Error("owner row missing after insert")
+  return user
+}
+
+export interface AdminCreatedUserInput {
+  email: string
+  passwordHash: string
+  role: UserRole
+  displayName: string
+  username: string
+  language: string
+  timezone: string
+}
+
+/** 管理员手动建号：直接激活 + 已验证 + 首登强制改密，绕过注册审核/验证开关。 */
+export async function insertAdminCreatedUser(
+  db: D1Database,
+  prefix: string,
+  input: AdminCreatedUserInput
+): Promise<UserRow> {
+  const table = usersTable(prefix)
+  const now = new Date().toISOString()
+  await db
+    .prepare(
+      `INSERT INTO ${table}
+        (email, password_hash, role, status, email_verified, language,
+         display_name, username, timezone, theme, must_change_password,
+         created_at, updated_at)
+       VALUES (?, ?, ?, 'active', 1, ?, ?, ?, ?, 'system', 1, ?, ?)`
+    )
+    .bind(
+      input.email,
+      input.passwordHash,
+      input.role,
+      input.language,
+      input.displayName,
+      input.username,
+      input.timezone,
+      now,
+      now
+    )
+    .run()
+
+  const user = await findUserByEmail(db, prefix, input.email)
+  if (!user) throw new Error("admin-created user row missing after insert")
   return user
 }

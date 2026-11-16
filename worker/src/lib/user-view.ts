@@ -23,6 +23,8 @@ export interface UserView {
   timezone: string
   theme: string
   emailVerified: boolean
+  /** 首登强制改密标记；true 时前端引导改密后再放行。 */
+  mustChangePassword: boolean
   totpEnabled: boolean
   passkeyCount: number
   profileLocks: {
@@ -49,6 +51,7 @@ export async function buildUserView(
     timezone: user.timezone,
     theme: user.theme,
     emailVerified: user.email_verified === 1,
+    mustChangePassword: user.must_change_password === 1,
     totpEnabled: Boolean(twoFactor?.totp_enabled),
     passkeyCount,
     profileLocks: await readProfileLockSettings(env)

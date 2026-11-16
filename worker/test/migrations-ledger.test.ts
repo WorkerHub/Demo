@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest"
 import {
   BASELINE_MIGRATION,
+  MUST_CHANGE_PASSWORD_MIGRATION,
   USERNAME_MIGRATION,
   getMigrations
 } from "../src/lib/migrations"
@@ -27,11 +28,12 @@ describe("迁移定义", () => {
     const migrations = getMigrations(prefix)
     expect(migrations.map((migration) => migration.name)).toEqual([
       BASELINE_MIGRATION,
-      USERNAME_MIGRATION
+      USERNAME_MIGRATION,
+      MUST_CHANGE_PASSWORD_MIGRATION
     ])
     for (const migration of migrations) {
       const statements = splitStatements(migration.sql)
-      expect(statements.length).toBeGreaterThan(0)
+      if (!migration.prepare) expect(statements.length).toBeGreaterThan(0)
       for (const statement of statements) {
         expect(statement).not.toContain(";")
       }
@@ -91,7 +93,8 @@ describe("账本命名", () => {
     if (again.success) {
       expect(again.migrations).toEqual([
         { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" }
+        { name: USERNAME_MIGRATION, status: "skipped" },
+        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -113,7 +116,8 @@ describe("旧账本改名承接", () => {
     if (result.success) {
       expect(result.migrations).toEqual([
         { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" }
+        { name: USERNAME_MIGRATION, status: "skipped" },
+        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -126,7 +130,8 @@ describe("旧账本改名承接", () => {
       .all() as Array<{ name: string }>
     expect(rows.map((row) => row.name)).toEqual([
       BASELINE_MIGRATION,
-      USERNAME_MIGRATION
+      USERNAME_MIGRATION,
+      MUST_CHANGE_PASSWORD_MIGRATION
     ])
   })
 
@@ -217,7 +222,8 @@ describe("schema_v2：users.username", () => {
     if (result.success) {
       expect(result.migrations).toEqual([
         { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "applied" }
+        { name: USERNAME_MIGRATION, status: "applied" },
+        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -282,7 +288,8 @@ describe("schema_v2：users.username", () => {
     if (result.success) {
       expect(result.migrations).toEqual([
         { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "applied" }
+        { name: USERNAME_MIGRATION, status: "applied" },
+        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" }
       ])
     }
     expect(

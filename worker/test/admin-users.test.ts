@@ -178,7 +178,118 @@ describe("系统管理面", () => {
     expect(body.tablePrefix).toBe(activePrefix(env))
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "skipped" }
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
     ])
+  })
+})
+
+describe("管理员手动建号", () => {
+  it("建号返回一次性密码，首登 mustChangePassword=true，改密后清除", async () => {
+    const { env, db } = await initializedContext()
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+
+    const res = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "newbie@example.test", role: "user" },
+      { cookie: admin }
+    )
+    expect(res.status).toBe(200)
+    const created = (await res.json()) as {
+      id: number
+      email: string
+      role: string
+      status: string
+      temporaryPassword: string
+    }
+    expect(created).toMatchObject({
+      email: "newbie@example.test",
+      role: "user",
+      status: "active"
+    })
+    expect(created.temporaryPassword.length).toBeGreaterThanOrEqual(8)
+
+    // 库里只存哈希，不存明文；首登标记置 1，直接激活 + 已验证。
+    const row = db.db
+      .prepare(
+        `SELECT password_hash, must_change_password, status, email_verified
+           FROM ${usersTable(activePrefix(env))} WHERE email = ?`
+      )
+      .get("newbie@example.test") as {
+      password_hash: string
+      must_change_password: number
+      status: string
+      email_verified: number
+    }
+    expect(row.password_hash).not.toContain(created.temporaryPassword)
+    expect(row.must_change_password).toBe(1)
+    expect(row.status).toBe("active")
+    expect(row.email_verified).toBe(1)
+
+    // 一次性密码可登录，且下发 mustChangePassword=true。
+    const login = await loginUser(env, {
+      email: "newbie@example.test",
+      password: created.temporaryPassword
+    })
+    expect(login.status).toBe(200)
+    const loginBody = (await login.json()) as {
+      success: boolean
+      user: { mustChangePassword: boolean }
+    }
+    expect(loginBody.success).toBe(true)
+    expect(loginBody.user.mustChangePassword).toBe(true)
+    const cookie = cookieFrom(login)
+
+    // 改密成功后标记清除。
+    const changed = await putJson(
+      env,
+      "/api/me/password",
+      {
+        currentPassword: created.temporaryPassword,
+        newPassword: "new-strong-password"
+      },
+      { cookie }
+    )
+    expect(changed.status).toBe(200)
+
+    const me = await request(env, "/api/me", { headers: { cookie } })
+    expect(me.status).toBe(200)
+    const meBody = (await me.json()) as { mustChangePassword: boolean }
+    expect(meBody.mustChangePassword).toBe(false)
+  })
+
+  it("建号校验：非法邮箱 / 非法角色 / 重复邮箱", async () => {
+    const { env } = await initializedContext()
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+
+    const badEmail = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "not-an-email", role: "user" },
+      { cookie: admin }
+    )
+    expect(badEmail.status).toBe(400)
+    expect(await badEmail.json()).toMatchObject({ code: "INVALID_EMAIL" })
+
+    const badRole = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "x@example.test", role: "super" },
+      { cookie: admin }
+    )
+    expect(badRole.status).toBe(400)
+    expect(await badRole.json()).toMatchObject({ code: "INVALID_ROLE" })
+
+    const dup = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "owner@example.test", role: "user" },
+      { cookie: admin }
+    )
+    expect(dup.status).toBe(409)
+    expect(await dup.json()).toMatchObject({ code: "EMAIL_TAKEN" })
   })
 })
