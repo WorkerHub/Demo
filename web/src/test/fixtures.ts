@@ -33,7 +33,6 @@ export function me(overrides: Partial<Me> = {}): Me {
     emailVerified: true,
     mustChangePassword: false,
     language: "zh",
-    theme: "system",
     timezone: "Asia/Shanghai",
     totpEnabled: false,
     passkeyCount: 0,

@@ -54,7 +54,8 @@ describe("setup：初始化与回显", () => {
       migrations: [
         { name: "schema_v1", status: "applied" },
         { name: "schema_v2", status: "applied" },
-        { name: "schema_v3", status: "applied" }
+        { name: "schema_v3", status: "applied" },
+        { name: "schema_v4", status: "applied" }
       ]
     })
 
@@ -104,7 +105,8 @@ describe("setup：初始化与回显", () => {
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
-      { name: "schema_v3", status: "skipped" }
+      { name: "schema_v3", status: "skipped" },
+      { name: "schema_v4", status: "skipped" }
     ])
     expect(readSetting(db, prefix, "setup_page_enabled")).toBe("1")
   })
@@ -368,7 +370,8 @@ describe("管理面数据库维护（POST /api/admin/setup）", () => {
       migrations: [
         { name: "schema_v1", status: "skipped" },
         { name: "schema_v2", status: "skipped" },
-        { name: "schema_v3", status: "skipped" }
+        { name: "schema_v3", status: "skipped" },
+        { name: "schema_v4", status: "skipped" }
       ]
     })
   })

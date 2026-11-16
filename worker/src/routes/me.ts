@@ -36,8 +36,6 @@ import type { HonoEnv } from "../types"
 
 export const meRoutes = new Hono<HonoEnv>()
 
-const THEMES = ["light", "dark", "system"]
-
 type Ctx = Context<HonoEnv>
 
 meRoutes.get("/", async (c) => {
@@ -53,7 +51,6 @@ async function updateProfile(c: Ctx): Promise<Response> {
     displayName?: unknown
     username?: unknown
     language?: unknown
-    theme?: unknown
     timezone?: unknown
   }>(c)
   if (!body) return apiError(c, 400, "INVALID_REQUEST", "Invalid request body")
@@ -95,13 +92,6 @@ async function updateProfile(c: Ctx): Promise<Response> {
       return apiError(c, 400, "INVALID_LANGUAGE", "Unsupported language")
     }
     patch.language = language
-  }
-
-  if (body.theme !== undefined) {
-    if (typeof body.theme !== "string" || !THEMES.includes(body.theme)) {
-      return apiError(c, 400, "INVALID_THEME", "Unsupported theme")
-    }
-    patch.theme = body.theme
   }
 
   if (body.timezone !== undefined) {

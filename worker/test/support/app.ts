@@ -107,8 +107,8 @@ export async function seedSession(
   const user = db.db
     .prepare(
       `INSERT INTO ${usersTable(prefix)}
-        (email, password_hash, role, status, email_verified, language, display_name, timezone, theme, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, 'zh', '', 'Asia/Shanghai', 'system', ?, ?)`
+        (email, password_hash, role, status, email_verified, language, display_name, timezone, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, 'zh', '', 'Asia/Shanghai', ?, ?)`
     )
     .run(
       email,
