@@ -8,6 +8,8 @@
  *
  * 与前端（C 单）对齐的契约：
  * - `GET/PUT /api/me`，`PUT` 为正式契约，`PATCH` 保留同义别名；
+ * - `PUT /api/me` 接受 `username`（可自定义、全局唯一，规则见 `lib/username.ts`；
+ *   `''` = 未设置）；冲突回 409 `USERNAME_TAKEN`，形状不合法回 400 `INVALID_USERNAME`；
  * - `PUT /api/me/password {currentPassword,newPassword}`（`POST` 同义别名）；
  * - `GET /api/me/passkeys → {items:[{id,createdAt,lastUsedAt,transports}]}`；
  * - `DELETE /api/me/passkeys/:id {password}`。
@@ -17,11 +19,16 @@ import type { Context } from "hono"
 import { hashPassword } from "../core/auth"
 import { revokeAllSessions } from "../core/session"
 import { deletePasskey, listPasskeyViews } from "../db/queries/passkeys"
-import { findUserById, updateUserFields } from "../db/queries/users"
+import {
+  findUserById,
+  isUsernameTaken,
+  updateUserFields
+} from "../db/queries/users"
 import { currentUserId, requirePassword } from "../lib/account"
 import { apiError, readJsonBody } from "../lib/http"
 import { getTablePrefix } from "../lib/table-prefix"
 import { buildUserView } from "../lib/user-view"
+import { normalizeUsername } from "../lib/username"
 import { normalizeLanguage } from "../locales/email"
 import type { HonoEnv } from "../types"
 
@@ -53,12 +60,15 @@ meRoutes.get("/", async (c) => {
 async function updateProfile(c: Ctx): Promise<Response> {
   const body = await readJsonBody<{
     displayName?: unknown
+    username?: unknown
     language?: unknown
     theme?: unknown
     timezone?: unknown
   }>(c)
   if (!body) return apiError(c, 400, "INVALID_REQUEST", "Invalid request body")
 
+  const prefix = getTablePrefix(c.env)
+  const userId = currentUserId(c)
   const patch: Parameters<typeof updateUserFields>[3] = {}
 
   if (body.displayName !== undefined) {
@@ -66,6 +76,18 @@ async function updateProfile(c: Ctx): Promise<Response> {
       return apiError(c, 400, "INVALID_DISPLAY_NAME", "Invalid display name")
     }
     patch.display_name = body.displayName.trim().slice(0, 80)
+  }
+
+  // 用户名：形状由 lib/username.ts 定，唯一性先预检、最终由库层的部分唯一索引裁决。
+  if (body.username !== undefined) {
+    const username = normalizeUsername(body.username)
+    if (!username) {
+      return apiError(c, 400, "INVALID_USERNAME", "Invalid username")
+    }
+    if (await isUsernameTaken(c.env.DB, prefix, username, userId)) {
+      return apiError(c, 409, "USERNAME_TAKEN", "Username is already taken")
+    }
+    patch.username = username
   }
 
   if (body.language !== undefined) {
@@ -90,9 +112,19 @@ async function updateProfile(c: Ctx): Promise<Response> {
     patch.timezone = body.timezone
   }
 
-  const prefix = getTablePrefix(c.env)
-  const userId = currentUserId(c)
-  await updateUserFields(c.env.DB, prefix, userId, patch)
+  try {
+    await updateUserFields(c.env.DB, prefix, userId, patch)
+  } catch (err) {
+    // 预检与写入之间有人抢先注册同名：唯一索引是最终裁决（与注册处的 EMAIL_TAKEN 同写法）。
+    if (
+      patch.username !== undefined &&
+      err instanceof Error &&
+      /UNIQUE/i.test(err.message)
+    ) {
+      return apiError(c, 409, "USERNAME_TAKEN", "Username is already taken")
+    }
+    throw err
+  }
   const user = await findUserById(c.env.DB, prefix, userId)
   if (!user) return apiError(c, 404, "USER_NOT_FOUND", "User not found")
   return c.json(await buildUserView(c.env, user))

@@ -160,6 +160,10 @@ describe("个人设置", () => {
       { cookie }
     )
     expect(enable.status).toBe(200)
+    const meEnabled = (await (
+      await request(env, "/api/me", { headers: { cookie } })
+    ).json()) as { totpEnabled: boolean }
+    expect(meEnabled.totpEnabled).toBe(true)
 
     const again = await request(env, "/api/auth/2fa/totp/setup", {
       method: "POST",
@@ -188,7 +192,7 @@ describe("个人设置", () => {
 
     const me = (await (
       await request(env, "/api/me", { headers: { cookie } })
-    ).json()) as { twoFactor: { totpEnabled: boolean } }
-    expect(me.twoFactor.totpEnabled).toBe(false)
+    ).json()) as { totpEnabled: boolean }
+    expect(me.totpEnabled).toBe(false)
   })
 })

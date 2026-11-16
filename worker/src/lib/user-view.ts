@@ -13,6 +13,8 @@ import type { Env } from "../types"
 export interface UserView {
   id: number
   email: string
+  /** 自定义用户名；`''` = 未设置（前端回退到 displayName / email 首字）。 */
+  username: string
   displayName: string
   role: string
   status: string
@@ -20,10 +22,8 @@ export interface UserView {
   timezone: string
   theme: string
   emailVerified: boolean
-  twoFactor: {
-    totpEnabled: boolean
-    passkeyCount: number
-  }
+  totpEnabled: boolean
+  passkeyCount: number
 }
 
 export async function buildUserView(
@@ -32,9 +32,11 @@ export async function buildUserView(
 ): Promise<UserView> {
   const prefix = getTablePrefix(env)
   const twoFactor = await getTwoFactor(env.DB, prefix, user.id)
+  const passkeyCount = await countPasskeys(env.DB, prefix, user.id)
   return {
     id: user.id,
     email: user.email,
+    username: user.username,
     displayName: user.display_name,
     role: user.role,
     status: user.status,
@@ -42,9 +44,7 @@ export async function buildUserView(
     timezone: user.timezone,
     theme: user.theme,
     emailVerified: user.email_verified === 1,
-    twoFactor: {
-      totpEnabled: Boolean(twoFactor?.totp_enabled),
-      passkeyCount: await countPasskeys(env.DB, prefix, user.id)
-    }
+    totpEnabled: Boolean(twoFactor?.totp_enabled),
+    passkeyCount
   }
 }
