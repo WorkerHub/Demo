@@ -102,7 +102,12 @@ export function ProfilePage() {
             <Button type="submit" disabled={busy}>
               {busy ? t("common.actions.saving") : t("common.actions.save")}
             </Button>
-            <Button type="button" variant="outline" onClick={cancel}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={cancel}
+            >
               {t("common.actions.cancel")}
             </Button>
           </div>
@@ -121,7 +126,9 @@ export function ProfilePage() {
             </Button>
           </div>
           <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
-            <dt className="text-muted-foreground">{t("profile.displayName")}</dt>
+            <dt className="text-muted-foreground">
+              {t("profile.displayName")}
+            </dt>
             <dd>{user.displayName}</dd>
             <dt className="text-muted-foreground">{t("profile.username")}</dt>
             <dd>{user.username}</dd>

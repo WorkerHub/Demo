@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { me } from "@/test/fixtures"
 import { ProfilePage } from "@/pages/profile"
 import { useAuthStore } from "@/stores/auth"
+import type { Me } from "@/lib/api-types"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -138,5 +139,28 @@ describe("个人资料页", () => {
 
     expect(meApi.update).not.toHaveBeenCalled()
     expect(screen.queryByLabelText("用户名")).not.toBeInTheDocument()
+  })
+
+  it("保存期间取消按钮不可点", async () => {
+    let resolveUpdate: (value: Me) => void = () => {}
+    vi.mocked(meApi.update).mockReturnValue(
+      new Promise<Me>((resolve) => {
+        resolveUpdate = resolve
+      })
+    )
+    const user = userEvent.setup()
+    render(<ProfilePage />)
+
+    await user.click(screen.getByRole("button", { name: "编辑" }))
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    expect(screen.getByRole("button", { name: "取消" })).toBeDisabled()
+
+    await act(async () => {
+      resolveUpdate(me())
+    })
+    await waitFor(() =>
+      expect(screen.queryByLabelText("用户名")).not.toBeInTheDocument()
+    )
   })
 })
