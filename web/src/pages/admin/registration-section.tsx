@@ -102,6 +102,14 @@ export function RegistrationSection({
           />
         </label>
 
+        {!emailConfigured ? (
+          <p className="text-xs text-muted-foreground">
+            {registration.emailVerification
+              ? t("admin.registration.emailVerificationInactive")
+              : t("admin.registration.emailVerificationBlocked")}
+          </p>
+        ) : null}
+
         <label className="flex items-center justify-between gap-4 text-sm">
           <span>{t("admin.registration.lockDisplayName")}</span>
           <Switch
@@ -123,14 +131,6 @@ export function RegistrationSection({
             }
           />
         </label>
-
-        {!emailConfigured ? (
-          <p className="text-xs text-muted-foreground">
-            {registration.emailVerification
-              ? t("admin.registration.emailVerificationInactive")
-              : t("admin.registration.emailVerificationBlocked")}
-          </p>
-        ) : null}
 
         {error ? (
           <p role="alert" className="text-sm text-destructive">
