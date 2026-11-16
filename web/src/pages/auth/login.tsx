@@ -6,8 +6,7 @@ import { Field } from "@/components/form-field"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useCooldown } from "@/hooks/use-cooldown"
-import { currentLanguage } from "@/i18n"
-import { applyAccountPreferences } from "@/lib/account-prefs"
+import { applyAccountLanguage, currentLanguage } from "@/i18n"
 import { ApiError, authApi } from "@/lib/api"
 import { describeApiError, retryAfterSeconds } from "@/lib/api-errors"
 import type { Me, TwoFactorMethod } from "@/lib/api-types"
@@ -58,7 +57,7 @@ export function LoginPage() {
 
   const finishLogin = async (user: Me) => {
     useAuthStore.getState().setUser(user)
-    await applyAccountPreferences(user, { pushLocal: true })
+    await applyAccountLanguage(user.language)
     const returnTo = from && from !== "/login" ? from : undefined
     if (user.mustChangePassword) {
       // 首登强制改密：把原目标带到改密页，改完再回去。
