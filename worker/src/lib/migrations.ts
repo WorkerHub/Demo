@@ -105,8 +105,11 @@ function mustChangePasswordMigration(prefix: string): Migration {
  * - 删列走 `prepare`：先看 PRAGMA，列在才 DROP，重跑/中断重跑都幂等。
  * - 无索引诉求，`sql` 留空（执行器对空 sql 幂等跳过）。
  * - 全新库仍由冻结的 `schema_v1` 建出该列，本迁移紧接着删掉，两条路径收敛到同一形状。
- * - 回滚：`ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'` 能恢复列（旧代码可跑），
- *   但原值不可恢复；要取值只能靠 D1 Time Travel，所以执行前必须先备份。
+ * - 执行顺序（硬约束）：必须等本版本部署完成后再触发升级。Cloudflare 部署传播期间
+ *   边缘仍可能跑删列前的旧版本，而旧版本会 `SELECT theme`，此时删列会让那些位置报缺列。
+ * - 回滚 Worker 到删列前的版本前，先补回列（`ADD COLUMN theme TEXT NOT NULL DEFAULT
+ *   'system'`），否则旧代码读缺列直接报错；原值不可恢复，要取值只能靠 D1 Time Travel，
+ *   所以执行前必须先备份。
  */
 function themeRemovalMigration(prefix: string): Migration {
   const table = usersTable(prefix)

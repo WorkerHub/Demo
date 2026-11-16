@@ -46,6 +46,7 @@ Temp — WorkerHub 模板骨架项目：迁移、setup 与鉴权的最小实现�
 - **项目身份单点**：`worker/src/config/project.ts` 集中放展示名、仓库 / Worker 名、一句话说明与仓库地址；默认表前缀单独放在 `worker/src/config/defaults.json`，worker 运行时与部署脚本共读这一份，改它一处两端同时生效。`pnpm check:identity` 扫描全仓，白名单外出现项目名 / slug 即失败。
 - **表前缀三态**：未配置 → 默认前缀；配置自定义值 → 规范化后使用；显式空值 → 无前缀。生效前缀必须在初始化前定死，中途换前缀会被 setup 的前缀冲突守卫拦下（409）。
 - **账本式迁移**：基线 `schema_v1` 之后按序追加（现为 `schema_v4`，含 `users.theme` 删列），幂等、只进不退；账本表为 `_<生效前缀>schema_migrations`。`worker/src/db/schema.sql` 与 `worker/src/lib/schema.ts` 的**基线**定义逐字同步，由测试锁住；基线之后的结构变化只写 `worker/src/lib/migrations.ts`，不回写 `schema.sql`。
+- **部署与升级的顺序**：`deploy.yml` 只发 Worker、不跑迁移；破坏性迁移必须等新版本部署完成（页脚 / 系统管理可见版本号）后再点「检查并升级数据库」——Cloudflare 部署传播期间，不同边缘可能仍跑旧版本。回滚 Worker 到删列前的版本前，先执行 `ALTER TABLE <生效前缀>users ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'` 补回列，否则旧代码会因缺列报错；被删数据只能靠 D1 Time Travel 找回。
 - **用户名**：可自定义、全局唯一（不分大小写，部分唯一索引）；`users.username` 由追加迁移 `schema_v2` 建列。未设置时为空字符串，界面头像按 `username` → `displayName` → `email` 的首字符回退。
 - **setup 双入口**：`/setup` 页（凭部署密钥）与系统管理「检查并升级数据库」（凭管理员会话）调用同一个迁移 runner；`POST /api/setup` 是纯升级端点，只跑迁移、不建用户，密钥只走 `X-Setup-Secret` 请求头（不进 URL），按 IP 限流。UI 不提供删表 / 清库入口。
 - **鉴权**：邮箱密码 + TOTP（密码步与验证码步分开呈现）+ Passkey（WebAuthn）；会话 Cookie 为 `HttpOnly` + `Secure` + `SameSite=Strict`，库里只存令牌哈希；密码连续失败按账号锁定，另有按 IP 的限流。
