@@ -30,6 +30,7 @@ export function me(overrides: Partial<Me> = {}): Me {
     role: "admin",
     status: "active",
     emailVerified: true,
+    mustChangePassword: false,
     language: "zh",
     theme: "system",
     timezone: "Asia/Shanghai",
