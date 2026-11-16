@@ -181,6 +181,19 @@ export interface AdminUser {
   createdAt: string
 }
 
+/** GET /api/admin/users 列表项：全量用户（`?status=pending` 时为其中待批准子集）。 */
+export interface AdminUser {
+  id: number
+  email: string
+  displayName: string
+  /** 用户名：`""` = 未设置。 */
+  username: string
+  role: UserRole
+  status: "active" | "pending" | "disabled"
+  emailVerified: boolean
+  createdAt: string
+}
+
 /** POST /api/admin/users：管理员手动新建用户（后端生成一次性初始密码）。 */
 export interface AdminCreateUserInput {
   email: string

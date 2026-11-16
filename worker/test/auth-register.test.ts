@@ -132,10 +132,12 @@ describe("注册：首个用户与审核", () => {
     const admin = await adminCookie(env)
 
     await registerUser(env, { email: "spam@example.test" })
-    const pending = (await (
+    const list = (await (
       await request(env, "/api/admin/users", { headers: { cookie: admin } })
-    ).json()) as { items: Array<{ id: number }> }
-    const id = pending.items[0].id
+    ).json()) as { items: Array<{ id: number; email: string }> }
+    const spam = list.items.find((item) => item.email === "spam@example.test")
+    if (!spam) throw new Error("spam user missing from admin list")
+    const id = spam.id
 
     const reject = await postJson(
       env,
