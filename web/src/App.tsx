@@ -19,6 +19,7 @@ import { LoginPage } from "@/pages/auth/login"
 import { RegisterPage } from "@/pages/auth/register"
 import { HomePage } from "@/pages/home"
 import { NotFoundPage } from "@/pages/not-found"
+import { ProfilePage } from "@/pages/profile"
 import { SettingsPage } from "@/pages/settings"
 import { SetupPage } from "@/pages/setup"
 import { WorkbenchPage } from "@/pages/workbench"
@@ -54,6 +55,7 @@ export const routes: RouteObject[] = [
             element: <AppShell />,
             children: [
               { path: "/workbench", element: <WorkbenchPage /> },
+              { path: "/profile", element: <ProfilePage /> },
               { path: "/settings", element: <SettingsPage /> },
               { path: "/about", element: <AboutPage /> },
               {

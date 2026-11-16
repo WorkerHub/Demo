@@ -111,4 +111,17 @@ describe("设置页", () => {
       })
     )
   })
+
+  it("标签只保留安全与偏好，默认选中安全", () => {
+    renderSettings()
+
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "安全",
+      "偏好"
+    ])
+    expect(screen.getByRole("tab", { name: "安全" })).toHaveAttribute(
+      "data-state",
+      "active"
+    )
+  })
 })
