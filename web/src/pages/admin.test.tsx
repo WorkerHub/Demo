@@ -63,9 +63,7 @@ describe("系统管理", () => {
     const user = userEvent.setup()
     renderAdmin()
 
-    await user.click(
-      await screen.findByRole("tab", { name: "注册与审核" })
-    )
+    await user.click(await screen.findByRole("tab", { name: "注册与审核" }))
 
     const toggle = await screen.findByRole("switch", {
       name: "注册需要验证邮箱"
@@ -84,7 +82,9 @@ describe("系统管理", () => {
     const user = userEvent.setup()
     renderAdmin()
 
-    expect(await screen.findByRole("heading", { name: "邮件配置" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("heading", { name: "邮件配置" })
+    ).toBeInTheDocument()
     await user.click(screen.getByRole("tab", { name: "注册与审核" }))
     expect(screen.queryByText("开放注册")).not.toBeInTheDocument()
     expect(screen.queryByText("注册需要管理员批准")).not.toBeInTheDocument()
