@@ -51,10 +51,11 @@ describe("注册：首个用户与审核", () => {
     const login = await loginUser(env, { email: "owner@example.test" })
     expect(login.status).toBe(200)
     const body = (await login.json()) as {
-      requires2fa: boolean
+      success: boolean
       user: { email: string; role: string }
     }
-    expect(body.requires2fa).toBe(false)
+    expect(body.success).toBe(true)
+    expect("requires2fa" in body).toBe(false)
     expect(body.user).toMatchObject({
       email: "owner@example.test",
       role: "admin"

@@ -400,7 +400,7 @@ authRoutes.post("/login", async (c) => {
     userAgent: c.req.header("user-agent") ?? ""
   })
   setSessionCookie(c, session.token)
-  return c.json({ requires2fa: false, user: await buildUserView(c.env, user) })
+  return c.json({ success: true, user: await buildUserView(c.env, user) })
 })
 
 /** 第二因子校验的公共前置：签名钥、限流、tempToken、用户状态、单次使用。 */
@@ -513,7 +513,7 @@ async function finishSignIn(
     userAgent: c.req.header("user-agent") ?? ""
   })
   setSessionCookie(c, session.token)
-  return c.json({ requires2fa: false, user: await buildUserView(c.env, user) })
+  return c.json({ success: true, user: await buildUserView(c.env, user) })
 }
 
 authRoutes.post("/2fa/verify", async (c) => {
