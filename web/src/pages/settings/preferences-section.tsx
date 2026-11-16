@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select"
 import { meApi } from "@/lib/api"
 import { describeApiError } from "@/lib/api-errors"
-import { themeToAccount } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
 
 /**
@@ -68,8 +67,8 @@ const COMMON_TIME_ZONES: string[] = [
 /**
  * 设置 · 偏好：语言、主题、时区。
  *
- * 三项都立即生效并写回账号（`PUT /api/me`）；语言切换的即时性由 i18next 负责，
- * 这里只补落库。主题在库里用 system/light/dark，界面上的「自动」= system。
+ * 语言与时区立即生效并写回账号（`PUT /api/me`）；主题只存本机（`useThemeStore`
+ * 的 localStorage persist），不进账号。
  */
 export function PreferencesSection() {
   const { t } = useTranslation()
@@ -111,9 +110,7 @@ export function PreferencesSection() {
 
       <div className="space-y-2">
         <Label>{t("settings.preferences.theme")}</Label>
-        <ThemeSegmented
-          onChange={(theme) => void persist({ theme: themeToAccount(theme) })}
-        />
+        <ThemeSegmented />
       </div>
 
       <div className="space-y-2">

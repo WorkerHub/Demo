@@ -11,14 +11,8 @@ const THEME_ICONS = {
   dark: MoonIcon
 } as const
 
-interface ThemePickerProps {
-  /** 交给调用方接管写回（设置页要同步账号）；不传则只改本机偏好。 */
-  onChange?: (theme: Theme) => void
-  disabled?: boolean
-}
-
-/** 设置页里的三档分段控件。 */
-export function ThemeSegmented({ onChange, disabled }: ThemePickerProps) {
+/** 设置页里的三档分段控件：只改本机偏好（localStorage）。 */
+export function ThemeSegmented() {
   const { t } = useTranslation()
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
@@ -26,14 +20,12 @@ export function ThemeSegmented({ onChange, disabled }: ThemePickerProps) {
   const select = (next: Theme) => {
     if (next === theme) return
     setTheme(next)
-    onChange?.(next)
   }
 
   return (
     <ToggleGroup
       type="single"
       value={theme}
-      disabled={disabled}
       onValueChange={(value) => {
         if (isTheme(value)) select(value)
       }}
@@ -52,8 +44,8 @@ export function ThemeSegmented({ onChange, disabled }: ThemePickerProps) {
   )
 }
 
-/** 顶栏与未登录页的主题循环按钮：自动 → 亮 → 暗 → 自动。 */
-export function ThemeCycleButton({ onChange }: ThemePickerProps) {
+/** 顶栏与未登录页的主题循环按钮：自动 → 亮 → 暗 → 自动，只改本机偏好。 */
+export function ThemeCycleButton() {
   const { t } = useTranslation()
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
@@ -71,10 +63,7 @@ export function ThemeCycleButton({ onChange }: ThemePickerProps) {
       size="icon-sm"
       title={label}
       aria-label={label}
-      onClick={() => {
-        setTheme(next)
-        onChange?.(next)
-      }}
+      onClick={() => setTheme(next)}
     >
       <Icon aria-hidden="true" />
     </Button>

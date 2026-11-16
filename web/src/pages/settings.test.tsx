@@ -1,9 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { me } from "@/test/fixtures"
 import { SettingsPage } from "@/pages/settings"
 import { useAuthStore } from "@/stores/auth"
+import { useThemeStore } from "@/stores/theme"
+import { me } from "@/test/fixtures"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -53,16 +54,19 @@ describe("设置页", () => {
     expect(document.documentElement.lang).toBe("en")
   })
 
-  it("主题切换写回账号（界面 auto 对应库里 system）", async () => {
+  it("主题切换只写本机，不调账号接口", async () => {
     const user = userEvent.setup()
     renderSettings()
 
     await user.click(screen.getByRole("tab", { name: "偏好" }))
     await user.click(screen.getByRole("radio", { name: "暗色" }))
 
-    await waitFor(() =>
-      expect(meApi.update).toHaveBeenCalledWith({ theme: "dark" })
-    )
+    expect(useThemeStore.getState().theme).toBe("dark")
+    const stored = JSON.parse(localStorage.getItem("app-theme") ?? "{}") as {
+      state?: { theme?: string }
+    }
+    expect(stored.state?.theme).toBe("dark")
+    expect(meApi.update).not.toHaveBeenCalled()
   })
 
   it("时区下拉只列常用时区", async () => {
