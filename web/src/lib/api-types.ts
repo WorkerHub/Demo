@@ -44,15 +44,19 @@ export interface SetupOwnerInput {
 
 export type TwoFactorMethod = "totp" | "passkey"
 
+export type UserRole = "admin" | "user"
+
 export interface Me {
   id: number
   email: string
   displayName: string
   /** 用户名：`""` = 未设置。头像首字见 `lib/user-identity`。 */
   username: string
-  role: "admin" | "user"
+  role: UserRole
   status: "active" | "pending" | "disabled"
   emailVerified: boolean
+  /** 首次登录强制改密（管理员建号等场景）；true 时前端引导强制改密后再放行。 */
+  mustChangePassword: boolean
   language: string
   /** 账号侧取值：system / light / dark（界面上的「自动」= system）。 */
   theme: string
@@ -169,4 +173,28 @@ export interface PendingUser {
   email: string
   displayName: string
   createdAt: string
+}
+
+/** POST /api/admin/users：管理员手动新建用户（后端生成一次性初始密码）。 */
+export interface AdminCreateUserInput {
+  email: string
+  role: UserRole
+  /** 缺省 ''。 */
+  displayName?: string
+  /** 缺省 ''（未设置），形状规则同 worker/src/lib/username.ts。 */
+  username?: string
+  /** 缺省 'zh'。 */
+  language?: string
+  /** IANA 时区，缺省 'Asia/Shanghai'。 */
+  timezone?: string
+}
+
+/** POST /api/admin/users 响应：直接激活；一次性密码仅此响应返回。 */
+export interface AdminCreateUserResult {
+  id: number
+  email: string
+  role: UserRole
+  status: "active"
+  /** 系统生成的一次性初始密码，仅本次响应返回，之后任何接口不回显、不落明文库。 */
+  temporaryPassword: string
 }
