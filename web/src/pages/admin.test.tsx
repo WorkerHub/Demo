@@ -3,7 +3,12 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
-import { adminSettings, me, pendingUser } from "@/test/fixtures"
+import {
+  adminCreatedUser,
+  adminSettings,
+  me,
+  pendingUser
+} from "@/test/fixtures"
 import { AdminPage } from "@/pages/admin/admin-page"
 import { useAuthStore } from "@/stores/auth"
 
@@ -16,6 +21,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       settings: vi.fn(),
       updateSettings: vi.fn(),
       testEmail: vi.fn(),
+      createUser: vi.fn(),
       pendingUsers: vi.fn(),
       approveUser: vi.fn(),
       rejectUser: vi.fn(),
@@ -38,6 +44,7 @@ function renderAdmin() {
 beforeEach(() => {
   useAuthStore.setState({ user: me(), status: "ready" })
   vi.mocked(adminApi.pendingUsers).mockResolvedValue({ items: [] })
+  vi.mocked(adminApi.createUser).mockReset()
 })
 
 describe("系统管理", () => {
@@ -223,5 +230,66 @@ describe("系统管理", () => {
     expect(adminApi.updateSettings).toHaveBeenCalledWith({
       profileLocks: { displayNameLocked: true }
     })
+  })
+
+  it("新建用户：提交邮箱与角色，成功后就地展示一次性密码，关闭即消失", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    const created = adminCreatedUser()
+    vi.mocked(adminApi.createUser).mockResolvedValue(created)
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+
+    await user.type(screen.getByLabelText("邮箱"), "new@example.com")
+    await user.click(screen.getByRole("radio", { name: "管理员" }))
+    await user.click(screen.getByRole("button", { name: "创建用户" }))
+
+    await waitFor(() =>
+      expect(adminApi.createUser).toHaveBeenCalledWith({
+        email: "new@example.com",
+        role: "admin"
+      })
+    )
+    expect(
+      await screen.findByText(created.temporaryPassword)
+    ).toBeInTheDocument()
+    expect(screen.getByText("用户已创建")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "关闭" }))
+    expect(
+      screen.queryByText(created.temporaryPassword)
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "创建用户" })).toBeInTheDocument()
+  })
+
+  it("新建用户：邮箱已被占用时就地报错并保留输入", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.createUser).mockRejectedValue(
+      new ApiError({ status: 409, message: "taken", code: "EMAIL_TAKEN" })
+    )
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+
+    const email = screen.getByLabelText("邮箱")
+    await user.type(email, "dup@example.com")
+    await user.click(screen.getByRole("button", { name: "创建用户" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("该邮箱已被注册")
+    expect(email).toHaveValue("dup@example.com")
+  })
+
+  it("新建用户：邮箱为空时不发请求", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+    await user.click(screen.getByRole("button", { name: "创建用户" }))
+
+    expect(await screen.findByText("请输入邮箱")).toBeInTheDocument()
+    expect(adminApi.createUser).not.toHaveBeenCalled()
   })
 })

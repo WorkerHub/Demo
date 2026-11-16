@@ -1,4 +1,5 @@
 import type {
+  AdminCreateUserResult,
   AdminSettings,
   Me,
   PendingUser,
@@ -85,6 +86,19 @@ export function pendingUser(overrides: Partial<PendingUser> = {}): PendingUser {
     email: "pending@example.com",
     displayName: "Pending",
     createdAt: "2026-01-02T03:04:05.000Z",
+    ...overrides
+  }
+}
+
+export function adminCreatedUser(
+  overrides: Partial<AdminCreateUserResult> = {}
+): AdminCreateUserResult {
+  return {
+    id: 9,
+    email: "new@example.com",
+    role: "user",
+    status: "active",
+    temporaryPassword: "temp-2026",
     ...overrides
   }
 }

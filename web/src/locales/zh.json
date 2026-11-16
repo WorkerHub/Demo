@@ -289,7 +289,23 @@
       "rejected": "已拒绝",
       "requestedAt": "申请于 {{date}}",
       "displayName": "名称",
-      "actions": "操作"
+      "actions": "操作",
+      "create": {
+        "title": "新建用户",
+        "email": "邮箱",
+        "role": "角色",
+        "displayName": "昵称（可选）",
+        "username": "用户名（可选）",
+        "submit": "创建用户",
+        "creating": "创建中…",
+        "emailRequired": "请输入邮箱",
+        "createdTitle": "用户已创建",
+        "password": "初始密码",
+        "passwordOnce": "密码只显示这一次，关闭后无法再查看。",
+        "copy": "复制",
+        "copied": "已复制",
+        "copyFailed": "复制失败，请手动选中密码复制"
+      }
     },
     "maintenance": {
       "title": "数据库维护",

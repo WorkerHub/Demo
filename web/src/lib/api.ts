@@ -9,6 +9,8 @@
  * - 只有带 body 的请求才设 Content-Type，GET 与 204 不碰。
  */
 import type {
+  AdminCreateUserInput,
+  AdminCreateUserResult,
   AdminSettings,
   AdminSettingsUpdate,
   LoginResult,
@@ -254,6 +256,12 @@ export const adminApi = {
     request<{ success: true }>("/admin/settings/test-email", {
       method: "POST",
       body: { to }
+    }),
+
+  createUser: (input: AdminCreateUserInput) =>
+    request<AdminCreateUserResult>("/admin/users", {
+      method: "POST",
+      body: input
     }),
 
   pendingUsers: () =>
