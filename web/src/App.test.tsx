@@ -166,11 +166,11 @@ describe("路由与根门", () => {
     ).toBeInTheDocument()
   })
 
-  it("头像显示用户名首字", async () => {
+  it("头像显示昵称首字", async () => {
     vi.mocked(setupApi.state).mockResolvedValue(
       setupState({ ownerExists: true, enabled: false })
     )
-    vi.mocked(meApi.get).mockResolvedValue(me({ username: "水手" }))
+    vi.mocked(meApi.get).mockResolvedValue(me({ displayName: "水手" }))
 
     renderAt(routes, "/workbench")
     const trigger = await screen.findByRole("button", { name: "账号" })

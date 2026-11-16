@@ -185,7 +185,8 @@ describe("系统管理面", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
   })
 })
@@ -235,8 +236,7 @@ describe("全量用户列表", () => {
         "emailVerified",
         "id",
         "role",
-        "status",
-        "username"
+        "status"
       ])
       expect(typeof item.emailVerified).toBe("boolean")
       expect(item).not.toHaveProperty("password_hash")
@@ -391,7 +391,6 @@ describe("管理员手动建号", () => {
         email: "boss@example.test",
         role: "admin",
         displayName: "Boss Liu",
-        username: "boss_liu",
         language: "en",
         timezone: "America/New_York"
       },
@@ -406,7 +405,7 @@ describe("管理员手动建号", () => {
 
     const row = db.db
       .prepare(
-        `SELECT role, status, display_name, username, language, timezone,
+        `SELECT role, status, display_name, language, timezone,
                 email_verified, must_change_password
            FROM ${usersTable(activePrefix(env))} WHERE email = ?`
       )
@@ -414,7 +413,6 @@ describe("管理员手动建号", () => {
       role: string
       status: string
       display_name: string
-      username: string
       language: string
       timezone: string
       email_verified: number
@@ -424,7 +422,6 @@ describe("管理员手动建号", () => {
       role: "admin",
       status: "active",
       display_name: "Boss Liu",
-      username: "boss_liu",
       language: "en",
       timezone: "America/New_York",
       email_verified: 1,
@@ -432,19 +429,22 @@ describe("管理员手动建号", () => {
     })
   })
 
-  it("可选字段校验：非法用户名 / 语言 / 时区、重复用户名", async () => {
+  it("可选字段校验：非法语言 / 时区；body 里多余的 username 被忽略", async () => {
     const { env } = await initializedContext()
     await registerUser(env, { email: "owner@example.test" })
     const admin = await adminCookie(env)
 
-    const badUsername = await postJson(
+    const ignored = await postJson(
       env,
       "/api/admin/users",
       { email: "u1@example.test", role: "user", username: "a" },
       { cookie: admin }
     )
-    expect(badUsername.status).toBe(400)
-    expect(await badUsername.json()).toMatchObject({ code: "INVALID_USERNAME" })
+    expect(ignored.status).toBe(200)
+    expect(await ignored.json()).toMatchObject({
+      email: "u1@example.test",
+      status: "active"
+    })
 
     const badLanguage = await postJson(
       env,
@@ -463,22 +463,5 @@ describe("管理员手动建号", () => {
     )
     expect(badTimezone.status).toBe(400)
     expect(await badTimezone.json()).toMatchObject({ code: "INVALID_TIMEZONE" })
-
-    const first = await postJson(
-      env,
-      "/api/admin/users",
-      { email: "dup1@example.test", role: "user", username: "dup_name" },
-      { cookie: admin }
-    )
-    expect(first.status).toBe(200)
-
-    const dupUsername = await postJson(
-      env,
-      "/api/admin/users",
-      { email: "dup2@example.test", role: "user", username: "dup_name" },
-      { cookie: admin }
-    )
-    expect(dupUsername.status).toBe(409)
-    expect(await dupUsername.json()).toMatchObject({ code: "USERNAME_TAKEN" })
   })
 })

@@ -10,25 +10,22 @@ import { meApi } from "@/lib/api"
 import { describeApiError } from "@/lib/api-errors"
 import { useAuthStore } from "@/stores/auth"
 
-/** 个人资料页：默认只读展示昵称与用户名，点「编辑」才出现输入框；任一资料锁开启时编辑按钮置灰。 */
+/** 个人资料页：默认只读展示昵称，点「编辑」才出现输入框；昵称锁开启时编辑按钮置灰。 */
 export function ProfilePage() {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.user)
   const setUser = useAuthStore((state) => state.setUser)
   const [editing, setEditing] = useState(false)
   const [displayName, setDisplayName] = useState(user?.displayName ?? "")
-  const [username, setUsername] = useState(user?.username ?? "")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
   if (!user) return null
 
-  const locked =
-    user.profileLocks.displayNameLocked || user.profileLocks.usernameLocked
+  const locked = user.profileLocks.displayNameLocked
 
   const startEdit = () => {
     setDisplayName(user.displayName)
-    setUsername(user.username)
     setError("")
     setEditing(true)
   }
@@ -42,19 +39,10 @@ export function ProfilePage() {
     event.preventDefault()
     setBusy(true)
     setError("")
-    const nextUsername = username.trim()
     try {
-      const updated = await meApi.update({
-        displayName: displayName.trim(),
-        // 未改动（含从未设置时的空串）不发，避免无意义的校验错误。
-        ...(nextUsername === (user.username ?? "")
-          ? {}
-          : { username: nextUsername })
-      })
+      const updated = await meApi.update({ displayName: displayName.trim() })
       setUser(updated)
       setDisplayName(updated.displayName)
-      // 后端尚未提供 username 时不要清掉刚输入的值。
-      if (updated.username !== undefined) setUsername(updated.username)
       toast.success(t("profile.saved"))
       setEditing(false)
     } catch (saveError) {
@@ -78,17 +66,6 @@ export function ProfilePage() {
               autoComplete="name"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="profile-username">{t("profile.username")}</Label>
-            <Input
-              id="profile-username"
-              name="username"
-              autoComplete="username"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
             />
           </div>
 
@@ -130,8 +107,6 @@ export function ProfilePage() {
               {t("profile.displayName")}
             </dt>
             <dd>{user.displayName}</dd>
-            <dt className="text-muted-foreground">{t("profile.username")}</dt>
-            <dd>{user.username}</dd>
           </dl>
         </section>
       )}

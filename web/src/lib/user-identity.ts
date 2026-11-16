@@ -1,9 +1,9 @@
 import type { Me } from "@/lib/api-types"
 
-type AccountIdentity = Pick<Me, "username" | "displayName" | "email">
+type AccountIdentity = Pick<Me, "displayName" | "email">
 
 /**
- * 账号主显示名：用户名 → 显示名称 → 邮箱，取第一个非空值。
+ * 账号主显示名：显示名称 → 邮箱，取第一个非空值。
  *
  * 顶栏下拉的身份块与头像首字共用这一条回退链，别在组件里另写。
  */
@@ -11,7 +11,7 @@ export function accountPrimaryLabel(
   user: AccountIdentity | null | undefined
 ): string {
   if (!user) return ""
-  return user.username || user.displayName || user.email || ""
+  return user.displayName || user.email || ""
 }
 
 /**

@@ -15,7 +15,6 @@ import {
   findUserById,
   insertAdminCreatedUser,
   isUserStatus,
-  isUsernameTaken,
   listUsers,
   type UserRow,
   type UserStatus
@@ -32,7 +31,6 @@ import {
 import { runSetup } from "../lib/setup"
 import { getTablePrefix } from "../lib/table-prefix"
 import { isValidTimezone } from "../lib/timezone"
-import { normalizeUsername } from "../lib/username"
 import { adminMiddleware } from "../middleware/admin"
 import { normalizeLanguage, renderTestEmail } from "../locales/email"
 import {
@@ -228,7 +226,6 @@ adminRoutes.post("/users", async (c) => {
     email?: unknown
     role?: unknown
     displayName?: unknown
-    username?: unknown
     language?: unknown
     timezone?: unknown
   }>(c)
@@ -258,18 +255,6 @@ adminRoutes.post("/users", async (c) => {
     displayName = body.displayName.trim().slice(0, 80)
   }
 
-  let username = ""
-  if (body.username !== undefined) {
-    const normalized = normalizeUsername(body.username)
-    if (!normalized) {
-      return apiError(c, 400, "INVALID_USERNAME", "Invalid username")
-    }
-    if (await isUsernameTaken(c.env.DB, prefix, normalized, 0)) {
-      return apiError(c, 409, "USERNAME_TAKEN", "Username is already taken")
-    }
-    username = normalized
-  }
-
   let language = "zh"
   if (body.language !== undefined) {
     const normalized = normalizeLanguage(body.language)
@@ -297,17 +282,13 @@ adminRoutes.post("/users", async (c) => {
       passwordHash,
       role,
       displayName,
-      username,
       language,
       timezone
     })
   } catch (err) {
     if (err instanceof Error && /UNIQUE/i.test(err.message)) {
-      // 预检与写入之间被并发抢先：按约束命中的列归因，email 与 username 各回各的码。
-      if (/email/i.test(err.message)) {
-        return apiError(c, 409, "EMAIL_TAKEN", "Email is already registered")
-      }
-      return apiError(c, 409, "USERNAME_TAKEN", "Username is already taken")
+      // 预检与写入之间被并发抢先：users 上只剩 email 一个唯一约束。
+      return apiError(c, 409, "EMAIL_TAKEN", "Email is already registered")
     }
     throw err
   }

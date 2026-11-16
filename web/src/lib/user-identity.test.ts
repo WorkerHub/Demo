@@ -1,20 +1,15 @@
 import { describe, expect, it } from "vitest"
 import { accountInitial, accountPrimaryLabel } from "@/lib/user-identity"
 
-const base = { email: "owner@example.com", displayName: "Owner", username: "" }
+const base = { email: "owner@example.com", displayName: "Owner" }
 
 describe("账号身份", () => {
-  it("用户名优先于显示名称与邮箱", () => {
-    expect(accountPrimaryLabel({ ...base, username: "水手" })).toBe("水手")
-    expect(accountInitial({ ...base, username: "水手" })).toBe("水")
-  })
-
-  it("未设置用户名时回落到显示名称", () => {
+  it("显示名称优先于邮箱", () => {
     expect(accountPrimaryLabel(base)).toBe("Owner")
     expect(accountInitial(base)).toBe("O")
   })
 
-  it("显示名称也为空时回落到邮箱", () => {
+  it("显示名称为空时回落到邮箱", () => {
     const user = { ...base, displayName: "" }
     expect(accountPrimaryLabel(user)).toBe("owner@example.com")
     expect(accountInitial(user)).toBe("O")
@@ -26,10 +21,10 @@ describe("账号身份", () => {
   })
 
   it("按码点取首字，代理对不被截断", () => {
-    expect(accountInitial({ ...base, username: "🙂船" })).toBe("🙂")
+    expect(accountInitial({ ...base, displayName: "🙂船" })).toBe("🙂")
   })
 
   it("首字母转大写", () => {
-    expect(accountInitial({ ...base, username: "sailor" })).toBe("S")
+    expect(accountInitial({ ...base, displayName: "sailor" })).toBe("S")
   })
 })

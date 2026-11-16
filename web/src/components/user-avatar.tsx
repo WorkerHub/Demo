@@ -3,7 +3,7 @@ import type { Me } from "@/lib/api-types"
 import { accountInitial } from "@/lib/user-identity"
 
 type UserAvatarProps = {
-  user: Pick<Me, "username" | "displayName" | "email"> | null
+  user: Pick<Me, "displayName" | "email"> | null
   className?: string
 }
 

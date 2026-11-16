@@ -12,7 +12,7 @@
  * 表名/索引名一律经 tables.ts（基线迁移经 schema.ts 的 `{prefix}` 占位）拼装，不写死前缀。
  */
 import { SCHEMA_INDEXES, SCHEMA_TABLES, baselineStatements } from "./schema"
-import { indexName, tableName, usersTable } from "./tables"
+import { indexName, settingsTable, tableName, usersTable } from "./tables"
 
 /** 迁移执行时能拿到的东西：库与生效前缀。 */
 export interface MigrationContext {
@@ -39,6 +39,9 @@ export const MUST_CHANGE_PASSWORD_MIGRATION = "schema_v3"
 /** 主题剥离迁移名：把 theme 从用户属性里删掉（主题只存前端 localStorage）。 */
 export const THEME_REMOVAL_MIGRATION = "schema_v4"
 
+/** 用户名退役迁移名：删 `users.username` 列、部分唯一索引与资料锁设置行。 */
+export const USERNAME_REMOVAL_MIGRATION = "schema_v5"
+
 /**
  * `users.username`（可自定义的用户名，`''` = 未设置）。
  *
@@ -47,6 +50,7 @@ export const THEME_REMOVAL_MIGRATION = "schema_v4"
  *   就会因多行 `''` 失败。`''` 参与不了索引，等于「未设置」不占名。
  * - `COLLATE NOCASE` 让 Alice / alice 视为同名（只折叠 ASCII，CJK 无大小写不受影响）。
  * - 回滚：`DROP INDEX`；新增列留着对旧代码无副作用。
+ * - 本迁移的产物已由 `schema_v5` 撤销（删列与索引）；保留它只为账本连续可重放。
  */
 function usernameMigration(prefix: string): Migration {
   const table = usersTable(prefix)
@@ -127,6 +131,35 @@ function themeRemovalMigration(prefix: string): Migration {
   }
 }
 
+/**
+ * `users.username` 退役（昵称是唯一名字字段）。
+ *
+ * - 删列走 `prepare`：先看 PRAGMA，列在才 DROP，重跑/中断重跑都幂等（`DROP COLUMN`
+ *   本身不幂等，重跑会报 no such column）。
+ * - 顺序硬约束：SQLite 不允许删被索引引用的列（报 "error in index … after drop column"），
+ *   必须先 `DROP INDEX IF EXISTS` 掉 `schema_v2` 建的部分唯一索引。
+ * - `sql` 清理旧资料锁的设置行（可重复执行）。
+ * - 全新库：`schema_v2` 建列与索引，本迁移紧接着删掉，两条路径收敛到同一形状。
+ * - 回滚：补回列（`ADD COLUMN username TEXT NOT NULL DEFAULT ''`）与部分唯一索引即可让
+ *   旧代码运行；每行原值不可恢复（只能靠 D1 Time Travel）。规格已定 Demo 数据可弃。
+ */
+function usernameRemovalMigration(prefix: string): Migration {
+  const table = usersTable(prefix)
+  const index = indexName(prefix, "users_username")
+  return {
+    name: USERNAME_REMOVAL_MIGRATION,
+    sql: `DELETE FROM ${settingsTable(prefix)} WHERE key = 'profile_username_locked'`,
+    prepare: async (ctx) => {
+      const columns = await ctx.db
+        .prepare(`PRAGMA table_info(${table})`)
+        .all<{ name: string }>()
+      if (!columns.results.some((column) => column.name === "username")) return
+      await ctx.db.prepare(`DROP INDEX IF EXISTS ${index}`).run()
+      await ctx.db.prepare(`ALTER TABLE ${table} DROP COLUMN username`).run()
+    }
+  }
+}
+
 export function getMigrations(prefix: string): Migration[] {
   const statements = baselineStatements(prefix)
   const sql = statements.join(";\n\n")
@@ -151,6 +184,7 @@ export function getMigrations(prefix: string): Migration[] {
     { name: BASELINE_MIGRATION, sql },
     usernameMigration(prefix),
     mustChangePasswordMigration(prefix),
-    themeRemovalMigration(prefix)
+    themeRemovalMigration(prefix),
+    usernameRemovalMigration(prefix)
   ]
 }

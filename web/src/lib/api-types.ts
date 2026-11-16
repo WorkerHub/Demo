@@ -50,8 +50,6 @@ export interface Me {
   id: number
   email: string
   displayName: string
-  /** 用户名：`""` = 未设置。头像首字见 `lib/user-identity`。 */
-  username: string
   role: UserRole
   status: "active" | "pending" | "disabled"
   emailVerified: boolean
@@ -64,7 +62,6 @@ export interface Me {
   /** 个人资料修改锁（后端强制拦截的开关状态，前端据此灰掉编辑按钮）。 */
   profileLocks: {
     displayNameLocked: boolean
-    usernameLocked: boolean
   }
 }
 
@@ -79,7 +76,6 @@ export interface RegisterResult {
 
 export interface MeUpdateInput {
   displayName?: string
-  username?: string
   language?: string
   timezone?: string
 }
@@ -127,7 +123,6 @@ export interface AdminSettings {
   registration: RegistrationSettings | null
   profileLocks: {
     displayNameLocked: boolean
-    usernameLocked: boolean
   }
   setupPageEnabled: boolean
   tablePrefix: string
@@ -155,7 +150,6 @@ export interface AdminSettingsUpdate {
   registration?: RegistrationSettings
   profileLocks?: {
     displayNameLocked?: boolean
-    usernameLocked?: boolean
   }
   setupPageEnabled?: boolean
   email?: {
@@ -170,8 +164,6 @@ export interface AdminUser {
   id: number
   email: string
   displayName: string
-  /** 用户名：`""` = 未设置。 */
-  username: string
   role: UserRole
   status: "active" | "pending" | "disabled"
   emailVerified: boolean
@@ -184,8 +176,6 @@ export interface AdminCreateUserInput {
   role: UserRole
   /** 缺省 ''。 */
   displayName?: string
-  /** 缺省 ''（未设置），形状规则同 worker/src/lib/username.ts。 */
-  username?: string
   /** 缺省 'zh'。 */
   language?: string
   /** IANA 时区，缺省 'Asia/Shanghai'。 */

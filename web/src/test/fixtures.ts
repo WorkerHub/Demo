@@ -27,7 +27,6 @@ export function me(overrides: Partial<Me> = {}): Me {
     id: 1,
     email: "owner@example.com",
     displayName: "Owner",
-    username: "",
     role: "admin",
     status: "active",
     emailVerified: true,
@@ -36,7 +35,7 @@ export function me(overrides: Partial<Me> = {}): Me {
     timezone: "Asia/Shanghai",
     totpEnabled: false,
     passkeyCount: 0,
-    profileLocks: { displayNameLocked: false, usernameLocked: false },
+    profileLocks: { displayNameLocked: false },
     ...overrides
   }
 }
@@ -59,7 +58,7 @@ export function adminSettings(
       approvalRequired: true,
       emailVerification: false
     },
-    profileLocks: { displayNameLocked: false, usernameLocked: false },
+    profileLocks: { displayNameLocked: false },
     setupPageEnabled: true,
     tablePrefix: "template_",
     email: {
@@ -84,7 +83,6 @@ export function adminUser(overrides: Partial<AdminUser> = {}): AdminUser {
     id: 2,
     email: "user@example.com",
     displayName: "User",
-    username: "",
     role: "user",
     status: "active",
     emailVerified: true,

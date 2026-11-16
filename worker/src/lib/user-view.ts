@@ -14,8 +14,6 @@ import { readProfileLockSettings } from "./settings"
 export interface UserView {
   id: number
   email: string
-  /** 自定义用户名；`''` = 未设置（前端回退到 displayName / email 首字）。 */
-  username: string
   displayName: string
   role: string
   status: string
@@ -28,7 +26,6 @@ export interface UserView {
   passkeyCount: number
   profileLocks: {
     displayNameLocked: boolean
-    usernameLocked: boolean
   }
 }
 
@@ -42,7 +39,6 @@ export async function buildUserView(
   return {
     id: user.id,
     email: user.email,
-    username: user.username,
     displayName: user.display_name,
     role: user.role,
     status: user.status,

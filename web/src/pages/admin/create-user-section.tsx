@@ -28,7 +28,6 @@ export function CreateUserSection() {
   const [email, setEmail] = useState("")
   const [role, setRole] = useState<UserRole>("user")
   const [displayName, setDisplayName] = useState("")
-  const [username, setUsername] = useState("")
   const [emailError, setEmailError] = useState("")
   const [error, setError] = useState("")
   const [result, setResult] = useState<AdminCreateUserResult | null>(null)
@@ -38,7 +37,6 @@ export function CreateUserSection() {
     setEmail("")
     setRole("user")
     setDisplayName("")
-    setUsername("")
     setEmailError("")
     setError("")
   }
@@ -54,8 +52,6 @@ export function CreateUserSection() {
     const input: AdminCreateUserInput = { email: trimmedEmail, role }
     const name = displayName.trim()
     if (name) input.displayName = name
-    const handle = username.trim()
-    if (handle) input.username = handle
 
     setBusy(true)
     setError("")
@@ -172,18 +168,6 @@ export function CreateUserSection() {
                 id="create-user-display-name"
                 value={displayName}
                 onChange={(event) => setDisplayName(event.target.value)}
-              />
-            </Field>
-
-            <Field
-              id="create-user-username"
-              label={t("admin.users.create.username")}
-            >
-              <Input
-                id="create-user-username"
-                autoComplete="off"
-                value={username}
-                onChange={(event) => setUsername(event.target.value)}
               />
             </Field>
           </div>
