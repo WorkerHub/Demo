@@ -61,9 +61,9 @@ describe("构建信息", () => {
     expect(segments!.semver).toMatch(/^\d+\.\d+\.\d+$/)
     expect(Number.isInteger(segments!.commitCount)).toBe(true)
     expect(segments!.commit).toMatch(/^[0-9a-f]{7,}$|^unknown$/)
-    expect(`${segments!.semver}-${segments!.commitCount}-${segments!.commit}`).toBe(
-      buildInfo.version.replace(/^v/, "")
-    )
+    expect(
+      `${segments!.semver}-${segments!.commitCount}-${segments!.commit}`
+    ).toBe(buildInfo.version.replace(/^v/, ""))
   })
 
   it("版本标签带站名时是「站名 · semver · 短哈希+build.提交数」", () => {
