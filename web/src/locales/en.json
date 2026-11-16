@@ -239,6 +239,12 @@
   },
   "admin": {
     "title": "System",
+    "tabs": {
+      "email": "Email",
+      "registration": "Registration & Approval",
+      "users": "Users",
+      "maintenance": "Database Maintenance"
+    },
     "email": {
       "title": "Email",
       "provider": "Provider",
@@ -265,6 +271,8 @@
       "smtpHint": "Port 465 uses implicit TLS; other ports use STARTTLS."
     },
     "registration": {
+      "lockDisplayName": "Lock display name",
+      "lockUsername": "Lock username",
       "title": "Registration and approval",
       "enabled": "Registration open",
       "approvalRequired": "New users need admin approval",
