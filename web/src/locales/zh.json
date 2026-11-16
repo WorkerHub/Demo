@@ -50,6 +50,7 @@
     "generic": "操作失败，请重试",
     "network": "网络异常，请检查连接后重试",
     "setupSecret": "密钥不正确",
+    "notFound": "页面不存在",
     "codes": {
       "INVALID_CREDENTIALS": "邮箱或密码不正确",
       "EMAIL_NOT_VERIFIED": "邮箱尚未验证",
