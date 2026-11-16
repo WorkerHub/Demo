@@ -123,6 +123,39 @@ export async function writeRegistrationSettings(
   return { ok: true }
 }
 
+/** 个人资料修改锁（昵称/用户名各自独立，默认关闭）。 */
+export interface ProfileLockSettings {
+  displayNameLocked: boolean
+  usernameLocked: boolean
+}
+
+export interface ProfileLockSettingsPatch {
+  displayNameLocked?: boolean
+  usernameLocked?: boolean
+}
+
+export async function readProfileLockSettings(
+  env: Env
+): Promise<ProfileLockSettings> {
+  return {
+    displayNameLocked: await getFlag(env, "profile_display_name_locked", false),
+    usernameLocked: await getFlag(env, "profile_username_locked", false)
+  }
+}
+
+/** 写个人资料锁开关；缺省字段不动。两种应用模式均可用（与注册无关）。 */
+export async function writeProfileLockSettings(
+  env: Env,
+  patch: ProfileLockSettingsPatch
+): Promise<void> {
+  if (patch.displayNameLocked !== undefined) {
+    await setFlag(env, "profile_display_name_locked", patch.displayNameLocked)
+  }
+  if (patch.usernameLocked !== undefined) {
+    await setFlag(env, "profile_username_locked", patch.usernameLocked)
+  }
+}
+
 /** 公开引导端点：只放公开、非敏感事实，一个请求够前端首屏用。 */
 export interface PublicBootstrap {
   name: string
@@ -152,6 +185,7 @@ export interface AdminSettings {
   appMode: typeof APP_MODE
   tablePrefix: string
   registration: RegistrationSettings | null
+  profileLocks: ProfileLockSettings
   setup: { pageEnabled: boolean }
   email: EmailSettingsView
 }
@@ -163,6 +197,7 @@ export async function buildAdminSettings(env: Env): Promise<AdminSettings> {
     tablePrefix: prefix,
     registration:
       APP_MODE === "multi" ? await readRegistrationSettings(env) : null,
+    profileLocks: await readProfileLockSettings(env),
     setup: { pageEnabled: await isSetupPageEnabled(env.DB, prefix) },
     email: await readEmailSettings(env)
   }

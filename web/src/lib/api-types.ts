@@ -59,6 +59,11 @@ export interface Me {
   timezone: string
   totpEnabled: boolean
   passkeyCount: number
+  /** 个人资料修改锁（后端强制拦截的开关状态，前端据此灰掉编辑按钮）。 */
+  profileLocks: {
+    displayNameLocked: boolean
+    usernameLocked: boolean
+  }
 }
 
 export type LoginResult =
@@ -119,6 +124,10 @@ export interface RegistrationSettings {
 export interface AdminSettings {
   /** 单人档不涉及注册：整个段为 null，页面据此隐藏。 */
   registration: RegistrationSettings | null
+  profileLocks: {
+    displayNameLocked: boolean
+    usernameLocked: boolean
+  }
   setupPageEnabled: boolean
   tablePrefix: string
   email: EmailSettings
@@ -143,6 +152,10 @@ export interface ResendUpdateInput {
 
 export interface AdminSettingsUpdate {
   registration?: RegistrationSettings
+  profileLocks?: {
+    displayNameLocked?: boolean
+    usernameLocked?: boolean
+  }
   setupPageEnabled?: boolean
   email?: {
     provider: EmailProvider

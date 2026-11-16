@@ -16,8 +16,10 @@ import {
 import { apiError, readJsonBody } from "../lib/http"
 import {
   buildAdminSettings,
+  writeProfileLockSettings,
   writeRegistrationSettings,
   writeSetupPageEnabled,
+  type ProfileLockSettingsPatch,
   type RegistrationSettingsPatch
 } from "../lib/settings"
 import { runSetup } from "../lib/setup"
@@ -57,11 +59,16 @@ adminRoutes.get("/settings", async (c) => {
 adminRoutes.put("/settings", async (c) => {
   const body = await readJsonBody<{
     registration?: RegistrationSettingsPatch | null
+    profileLocks?: ProfileLockSettingsPatch
     setup?: { pageEnabled?: boolean }
     email?: EmailSettingsPatch
   }>(c)
   if (!body) {
     return apiError(c, 400, "INVALID_EMAIL", "Invalid request body")
+  }
+
+  if (body.profileLocks !== undefined && body.profileLocks !== null) {
+    await writeProfileLockSettings(c.env, body.profileLocks)
   }
 
   if (body.registration !== undefined && body.registration !== null) {

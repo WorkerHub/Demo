@@ -35,6 +35,7 @@ export function me(overrides: Partial<Me> = {}): Me {
     timezone: "Asia/Shanghai",
     totpEnabled: false,
     passkeyCount: 0,
+    profileLocks: { displayNameLocked: false, usernameLocked: false },
     ...overrides
   }
 }
@@ -57,6 +58,7 @@ export function adminSettings(
       approvalRequired: true,
       emailVerification: false
     },
+    profileLocks: { displayNameLocked: false, usernameLocked: false },
     setupPageEnabled: true,
     tablePrefix: "template_",
     email: {

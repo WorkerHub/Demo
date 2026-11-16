@@ -10,6 +10,7 @@ import { getTwoFactor } from "../db/queries/twofa"
 import type { UserRow } from "../db/queries/users"
 import type { Env } from "../types"
 
+import { readProfileLockSettings } from "./settings"
 export interface UserView {
   id: number
   email: string
@@ -24,6 +25,10 @@ export interface UserView {
   emailVerified: boolean
   totpEnabled: boolean
   passkeyCount: number
+  profileLocks: {
+    displayNameLocked: boolean
+    usernameLocked: boolean
+  }
 }
 
 export async function buildUserView(
@@ -45,6 +50,7 @@ export async function buildUserView(
     theme: user.theme,
     emailVerified: user.email_verified === 1,
     totpEnabled: Boolean(twoFactor?.totp_enabled),
-    passkeyCount
+    passkeyCount,
+    profileLocks: await readProfileLockSettings(env)
   }
 }
