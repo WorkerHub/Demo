@@ -59,7 +59,16 @@ export function LoginPage() {
   const finishLogin = async (user: Me) => {
     useAuthStore.getState().setUser(user)
     await applyAccountPreferences(user, { pushLocal: true })
-    navigate(from && from !== "/login" ? from : "/workbench", { replace: true })
+    const returnTo = from && from !== "/login" ? from : undefined
+    if (user.mustChangePassword) {
+      // 首登强制改密：把原目标带到改密页，改完再回去。
+      navigate("/change-password", {
+        replace: true,
+        state: returnTo ? { from: returnTo } : undefined
+      })
+      return
+    }
+    navigate(returnTo ?? "/workbench", { replace: true })
   }
 
   const backToPassword = (message: string) => {

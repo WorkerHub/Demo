@@ -75,6 +75,25 @@ export function RequireAuth() {
   return <Outlet />
 }
 
+/**
+ * 首登改密门：管理员建号的账号带着 `mustChangePassword` 时，登录后的页面
+ * 一律先送回改密页；改密成功后标记清零，不再经过这里。
+ */
+export function RequirePasswordChanged() {
+  const user = useAuthStore((state) => state.user)
+  const location = useLocation()
+  if (user?.mustChangePassword) {
+    return (
+      <Navigate
+        to="/change-password"
+        state={{ from: location.pathname }}
+        replace
+      />
+    )
+  }
+  return <Outlet />
+}
+
 /** 未登录页（登录/注册/找回密码/公开首页）：已登录就回工作台。 */
 export function GuestOnly() {
   const user = useAuthStore((state) => state.user)

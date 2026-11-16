@@ -12,6 +12,7 @@ export const PAGE_TITLE_KEYS: Record<string, string> = {
   "/login": "auth.login.title",
   "/register": "auth.register.title",
   "/forgot-password": "auth.forgot.title",
+  "/change-password": "changePassword.title",
   "/setup": "setup.title",
   "/workbench": "workbench.nav.workbench",
   "/profile": "profile.title",

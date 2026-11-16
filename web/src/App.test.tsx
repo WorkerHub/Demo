@@ -97,6 +97,21 @@ describe("路由与根门", () => {
     ).toBeInTheDocument()
   })
 
+  it("首登改密标记会拦住工作台，先进改密页", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me({ mustChangePassword: true }))
+
+    renderAt(routes, "/workbench")
+
+    expect(
+      await screen.findByRole("heading", { name: "修改密码" })
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("当前密码")).toBeInTheDocument()
+    expect(screen.queryByTestId("workbench-page")).not.toBeInTheDocument()
+  })
+
   it("管理员能在账号菜单里看到「系统管理」，普通成员看不到", async () => {
     vi.mocked(setupApi.state).mockResolvedValue(
       setupState({ ownerExists: true, enabled: false })

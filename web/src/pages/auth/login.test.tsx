@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
 import { me, publicInfo } from "@/test/fixtures"
 import { LoginPage } from "@/pages/auth/login"
+import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -33,6 +34,7 @@ function renderLogin() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/workbench" element={<p>workbench</p>} />
+        <Route path="/change-password" element={<p>change-password</p>} />
       </Routes>
     </MemoryRouter>
   )
@@ -105,6 +107,21 @@ describe("登录两步（技术方案 §5B）", () => {
       method: "totp",
       code: "123456"
     })
+  })
+
+  it("首登账号登录后落在改密页而不是工作台", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      success: true,
+      user: me({ mustChangePassword: true })
+    })
+
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+
+    expect(await screen.findByText("change-password")).toBeInTheDocument()
+    expect(screen.queryByText("workbench")).not.toBeInTheDocument()
+    expect(useAuthStore.getState().user?.mustChangePassword).toBe(true)
   })
 
   it("未验证邮箱换成验证码步，提交带邮箱与验证码", async () => {
