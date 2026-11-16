@@ -4,6 +4,7 @@
       "save": "Save",
       "saving": "Saving…",
       "cancel": "Cancel",
+      "edit": "Edit",
       "confirm": "Confirm",
       "close": "Close",
       "retry": "Retry",
@@ -74,7 +75,9 @@
       "USERNAME_TAKEN": "That username is taken",
       "UNAUTHORIZED": "Please sign in first",
       "FORBIDDEN": "You do not have permission for this action",
-      "PASSWORD_INCORRECT": "Current password is incorrect"
+      "PASSWORD_INCORRECT": "Current password is incorrect",
+      "DISPLAY_NAME_LOCKED": "Display name editing is locked",
+      "USERNAME_LOCKED": "Username editing is locked"
     }
   },
   "home": {
@@ -152,7 +155,7 @@
     "ownerTitle": "Create the owner",
     "ownerSubtitle": "Create the only owner account to finish setup.",
     "ownerSubmit": "Create owner",
-    "displayName": "Display name"
+    "displayName": "Nickname"
   },
   "workbench": {
     "title": "Workbench",
@@ -207,7 +210,7 @@
 
   "profile": {
     "title": "Profile",
-    "displayName": "Display name",
+    "displayName": "Nickname",
     "username": "Username",
     "email": "Email",
     "emailVerified": "Verified",
