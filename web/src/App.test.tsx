@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import {
   createMemoryRouter,
   RouterProvider,
@@ -35,6 +36,17 @@ function renderAt(entries: RouteObject[] = routes, path = "/") {
       <RouterProvider router={router} />
     </ThemeProvider>
   )
+}
+
+function accountUser() {
+  // Radix 打开菜单时给 body 加 pointer-events: none，默认检查会拒绝点击。
+  return userEvent.setup({ pointerEventsCheck: 0 })
+}
+
+async function openAccountMenu() {
+  const account = accountUser()
+  await account.click(await screen.findByRole("button", { name: "账号" }))
+  return account
 }
 
 beforeEach(() => {
@@ -85,25 +97,68 @@ describe("路由与根门", () => {
     ).toBeInTheDocument()
   })
 
-  it("管理员能看到「系统管理」入口，普通成员看不到", async () => {
+  it("管理员能在账号菜单里看到「系统管理」，普通成员看不到", async () => {
     vi.mocked(setupApi.state).mockResolvedValue(
       setupState({ ownerExists: true, enabled: false })
     )
     vi.mocked(meApi.get).mockResolvedValue(me())
 
     const view = renderAt(routes, "/workbench")
+    await openAccountMenu()
     expect(
-      await screen.findByRole("link", { name: "系统管理" })
+      screen.getByRole("menuitem", { name: "系统管理" })
     ).toBeInTheDocument()
     view.unmount()
 
     vi.mocked(meApi.get).mockResolvedValue(me({ role: "user" }))
     renderAt(routes, "/workbench")
+    await openAccountMenu()
     expect(
-      await screen.findByRole("link", { name: "工作台" })
+      screen.getByRole("menuitem", { name: "个人资料" })
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole("link", { name: "系统管理" })
+      screen.queryByRole("menuitem", { name: "系统管理" })
     ).not.toBeInTheDocument()
+  })
+
+  it("侧栏只剩工作台一个入口", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    renderAt(routes, "/workbench")
+    const nav = await screen.findByRole("navigation")
+    expect(
+      within(nav)
+        .getAllByRole("link")
+        .map((link) => link.textContent)
+    ).toEqual(["工作台"])
+  })
+
+  it("账号菜单里的个人资料跳到独立页", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    renderAt(routes, "/workbench")
+    const account = await openAccountMenu()
+    await account.click(screen.getByRole("menuitem", { name: "个人资料" }))
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "个人资料" })
+    ).toBeInTheDocument()
+  })
+
+  it("头像显示用户名首字", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me({ username: "水手" }))
+
+    renderAt(routes, "/workbench")
+    const trigger = await screen.findByRole("button", { name: "账号" })
+    expect(within(trigger).getByText("水")).toBeInTheDocument()
   })
 })

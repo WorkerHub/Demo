@@ -48,6 +48,8 @@ export interface Me {
   id: number
   email: string
   displayName: string
+  /** 用户名：`""` = 未设置。头像首字见 `lib/user-identity`。 */
+  username: string
   role: "admin" | "user"
   status: "active" | "pending" | "disabled"
   emailVerified: boolean
@@ -70,6 +72,7 @@ export interface RegisterResult {
 
 export interface MeUpdateInput {
   displayName?: string
+  username?: string
   language?: string
   theme?: string
   timezone?: string
