@@ -4,6 +4,7 @@
       "save": "保存",
       "saving": "保存中…",
       "cancel": "取消",
+      "edit": "编辑",
       "confirm": "确定",
       "close": "关闭",
       "retry": "重试",
@@ -73,7 +74,9 @@
       "USERNAME_TAKEN": "该用户名已被占用",
       "UNAUTHORIZED": "请先登录",
       "FORBIDDEN": "没有权限执行该操作",
-      "PASSWORD_INCORRECT": "当前密码不正确"
+      "PASSWORD_INCORRECT": "当前密码不正确",
+      "DISPLAY_NAME_LOCKED": "昵称已被禁止修改",
+      "USERNAME_LOCKED": "用户名已被禁止修改"
     }
   },
   "home": {
@@ -151,7 +154,7 @@
     "ownerTitle": "创建所有者",
     "ownerSubtitle": "初始化完成后创建唯一的所有者账号。",
     "ownerSubmit": "创建所有者",
-    "displayName": "显示名称"
+    "displayName": "昵称"
   },
   "workbench": {
     "title": "工作台",
@@ -206,7 +209,7 @@
 
   "profile": {
     "title": "个人资料",
-    "displayName": "显示名称",
+    "displayName": "昵称",
     "username": "用户名",
     "email": "邮箱",
     "emailVerified": "已验证",
