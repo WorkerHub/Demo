@@ -292,6 +292,10 @@ adminRoutes.post("/users", async (c) => {
     })
   } catch (err) {
     if (err instanceof Error && /UNIQUE/i.test(err.message)) {
+      // 预检与写入之间被并发抢先：按约束命中的列归因，email 与 username 各回各的码。
+      if (/email/i.test(err.message)) {
+        return apiError(c, 409, "EMAIL_TAKEN", "Email is already registered")
+      }
       return apiError(c, 409, "USERNAME_TAKEN", "Username is already taken")
     }
     throw err
