@@ -36,7 +36,6 @@ describe("个人设置", () => {
       {
         displayName: "Owner",
         language: "en",
-        theme: "dark",
         timezone: "Europe/London"
       },
       { cookie }
@@ -45,7 +44,6 @@ describe("个人设置", () => {
     expect(await ok.json()).toMatchObject({
       displayName: "Owner",
       language: "en",
-      theme: "dark",
       timezone: "Europe/London"
     })
 
@@ -60,16 +58,6 @@ describe("个人设置", () => {
       "INVALID_LANGUAGE"
     )
 
-    const badTheme = await putJson(
-      env,
-      "/api/me",
-      { theme: "blue" },
-      { cookie }
-    )
-    expect(((await badTheme.json()) as { code: string }).code).toBe(
-      "INVALID_THEME"
-    )
-
     const badTimezone = await putJson(
       env,
       "/api/me",
@@ -79,6 +67,24 @@ describe("个人设置", () => {
     expect(((await badTimezone.json()) as { code: string }).code).toBe(
       "INVALID_TIMEZONE"
     )
+  })
+
+  it("主题不再是账号字段：GET 不返回 theme，PUT 里出现 theme 被忽略", async () => {
+    const { env } = await initializedContext()
+    const { cookie } = await registerAndLogin(env, {
+      email: "owner@example.test"
+    })
+
+    const before = (await (
+      await request(env, "/api/me", { headers: { cookie } })
+    ).json()) as Record<string, unknown>
+    expect(before).not.toHaveProperty("theme")
+
+    const res = await putJson(env, "/api/me", { theme: "dark" }, { cookie })
+    expect(res.status).toBe(200)
+    const after = (await res.json()) as Record<string, unknown>
+    expect(after).not.toHaveProperty("theme")
+    expect(after).toEqual(before)
   })
 
   it("改密：当前密码错 403；成功后其它会话失效、当前会话保留", async () => {

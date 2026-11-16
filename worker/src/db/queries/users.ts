@@ -22,7 +22,6 @@ export interface UserRow {
   language: string
   display_name: string
   timezone: string
-  theme: string
   created_at: string
   updated_at: string
   /** 首登强制改密标记：1 = 需改密（管理员建号），0 = 无需。 */
@@ -30,7 +29,7 @@ export interface UserRow {
 }
 
 const USER_COLUMNS = `id, email, username, password_hash, role, status, email_verified,
-  language, display_name, timezone, theme, created_at, updated_at, must_change_password`
+  language, display_name, timezone, created_at, updated_at, must_change_password`
 
 export async function findUserByEmail(
   db: D1Database,
@@ -77,14 +76,14 @@ export async function insertRegisteredUser(
     .prepare(
       `INSERT INTO ${table}
         (email, password_hash, role, status, email_verified, language,
-         display_name, timezone, theme, created_at, updated_at)
+         display_name, timezone, created_at, updated_at)
        SELECT ?, ?,
          CASE WHEN NOT EXISTS (SELECT 1 FROM ${table}) THEN 'admin' ELSE 'user' END,
          CASE WHEN NOT EXISTS (SELECT 1 FROM ${table}) THEN 'active'
               WHEN ? = 1 THEN 'pending' ELSE 'active' END,
          CASE WHEN NOT EXISTS (SELECT 1 FROM ${table}) THEN 1
               WHEN ? = 1 THEN 0 ELSE 1 END,
-         ?, '', 'Asia/Shanghai', 'system', ?, ?`
+         ?, '', 'Asia/Shanghai', ?, ?`
     )
     .bind(
       input.email,
@@ -111,7 +110,6 @@ const UPDATABLE_FIELDS = [
   "display_name",
   "username",
   "timezone",
-  "theme",
   "must_change_password"
 ] as const
 
@@ -267,8 +265,8 @@ export async function insertOwner(
     .prepare(
       `INSERT INTO ${usersTable(prefix)}
         (email, password_hash, role, status, email_verified, language,
-         display_name, timezone, theme, created_at, updated_at)
-       VALUES (?, ?, 'admin', 'active', 1, ?, '', 'Asia/Shanghai', 'system', ?, ?)`
+         display_name, timezone, created_at, updated_at)
+       VALUES (?, ?, 'admin', 'active', 1, ?, '', 'Asia/Shanghai', ?, ?)`
     )
     .bind(input.email, input.passwordHash, input.language, now, now)
     .run()
@@ -300,9 +298,9 @@ export async function insertAdminCreatedUser(
     .prepare(
       `INSERT INTO ${table}
         (email, password_hash, role, status, email_verified, language,
-         display_name, username, timezone, theme, must_change_password,
+         display_name, username, timezone, must_change_password,
          created_at, updated_at)
-       VALUES (?, ?, ?, 'active', 1, ?, ?, ?, ?, 'system', 1, ?, ?)`
+       VALUES (?, ?, ?, 'active', 1, ?, ?, ?, ?, 1, ?, ?)`
     )
     .bind(
       input.email,

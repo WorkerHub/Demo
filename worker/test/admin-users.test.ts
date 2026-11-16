@@ -179,7 +179,8 @@ describe("系统管理面", () => {
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
-      { name: "schema_v3", status: "skipped" }
+      { name: "schema_v3", status: "skipped" },
+      { name: "schema_v4", status: "skipped" }
     ])
   })
 })
