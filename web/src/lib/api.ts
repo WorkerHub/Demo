@@ -124,7 +124,7 @@ export const setupApi = {
       headers: { "X-Setup-Secret": secret }
     }),
   createOwner: (secret: string, input: SetupOwnerInput) =>
-    request<{ success: true; user: Me }>("/setup/owner", {
+    request<{ success: true }>("/setup/owner", {
       method: "POST",
       headers: { "X-Setup-Secret": secret },
       body: input
