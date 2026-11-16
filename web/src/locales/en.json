@@ -69,6 +69,8 @@
       "EMAIL_SEND_FAILED": "Failed to send email",
       "INVALID_EMAIL": "Invalid email format",
       "INVALID_PASSWORD": "Password does not meet the requirements",
+      "INVALID_USERNAME": "Invalid username",
+      "USERNAME_TAKEN": "That username is taken",
       "UNAUTHORIZED": "Please sign in first",
       "FORBIDDEN": "You do not have permission for this action",
       "PASSWORD_INCORRECT": "Current password is incorrect"
@@ -160,23 +162,14 @@
       "admin": "System"
     },
     "menu": "Menu",
+    "account": "Account",
     "logout": "Sign out"
   },
   "settings": {
     "title": "Settings",
     "tabs": {
-      "profile": "Profile",
       "security": "Security",
       "preferences": "Preferences"
-    },
-    "profile": {
-      "title": "Profile",
-      "displayName": "Display name",
-      "email": "Email",
-      "emailVerified": "Verified",
-      "emailUnverified": "Unverified",
-      "role": "Role",
-      "saved": "Saved"
     },
     "security": {
       "passwordTitle": "Change password",
@@ -209,6 +202,17 @@
       "timezone": "Time zone",
       "saved": "Preferences saved"
     }
+  },
+
+  "profile": {
+    "title": "Profile",
+    "displayName": "Display name",
+    "username": "Username",
+    "email": "Email",
+    "emailVerified": "Verified",
+    "emailUnverified": "Unverified",
+    "role": "Role",
+    "saved": "Saved"
   },
   "about": {
     "title": "About",

@@ -1,11 +1,11 @@
 import {
-  ChevronDownIcon,
   InfoIcon,
   LayoutDashboardIcon,
   LogOutIcon,
   MenuIcon,
   SettingsIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  UserIcon
 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -28,34 +28,47 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet"
+import { UserAvatar } from "@/components/user-avatar"
+import { accountPrimaryLabel } from "@/lib/user-identity"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
 
-const NAV_ITEMS = [
+const SIDEBAR_ITEMS = [
   {
     to: "/workbench",
     labelKey: "workbench.nav.workbench",
     icon: LayoutDashboardIcon
-  },
-  { to: "/settings", labelKey: "workbench.nav.settings", icon: SettingsIcon },
-  { to: "/about", labelKey: "workbench.nav.about", icon: InfoIcon },
+  }
+] as const
+
+/** 顶栏标题按路径取，未命中回落工作台。 */
+const PAGE_TITLES: Record<string, string> = {
+  "/workbench": "workbench.nav.workbench",
+  "/profile": "profile.title",
+  "/settings": "settings.title",
+  "/about": "workbench.nav.about",
+  "/admin": "workbench.nav.admin"
+}
+
+/** 头像下拉里的页面入口；系统管理仍只对管理员显示。 */
+const ACCOUNT_ITEMS = [
+  { to: "/profile", labelKey: "profile.title", icon: UserIcon },
   {
     to: "/admin",
     labelKey: "workbench.nav.admin",
     icon: ShieldCheckIcon,
     adminOnly: true
-  }
+  },
+  { to: "/settings", labelKey: "workbench.nav.settings", icon: SettingsIcon },
+  { to: "/about", labelKey: "workbench.nav.about", icon: InfoIcon }
 ] as const
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation()
-  const role = useAuthStore((state) => state.user?.role)
 
   return (
     <nav className="flex flex-col gap-1 p-2">
-      {NAV_ITEMS.filter(
-        (item) => !("adminOnly" in item) || role === "admin"
-      ).map((item) => {
+      {SIDEBAR_ITEMS.map((item) => {
         const Icon = item.icon
         return (
           <NavLink
@@ -80,8 +93,8 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 /**
  * 登录后的应用壳：侧边栏 + 顶栏 + 内容区（技术方案 §3C 的三件套骨架）。
  *
- * 侧边栏只放页面导航；「系统管理」按角色隐藏（接口层另有 403）。
- * 移动端把同一份导航装进 Sheet。
+ * 侧栏只留工作台；个人资料 / 系统管理 / 设置 / 关于在顶栏头像菜单里
+ * （系统管理按角色隐藏，接口层另有 403）。移动端把同一份侧栏装进 Sheet。
  */
 export function AppShell() {
   const { t } = useTranslation()
@@ -89,12 +102,12 @@ export function AppShell() {
   const location = useLocation()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const role = useAuthStore((state) => state.user?.role)
   const name = useSiteStore((state) => state.info?.name ?? "")
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const current =
-    NAV_ITEMS.find((item) => location.pathname.startsWith(item.to)) ??
-    NAV_ITEMS[0]
+  const titleKey = PAGE_TITLES[location.pathname] ?? "workbench.nav.workbench"
+  const primaryLabel = accountPrimaryLabel(user)
 
   const signOut = async () => {
     await logout()
@@ -135,7 +148,7 @@ export function AppShell() {
           </Sheet>
 
           <h1 className="truncate font-heading text-sm font-medium">
-            {t(current.labelKey)}
+            {t(titleKey)}
           </h1>
 
           <div className="ml-auto flex items-center gap-1">
@@ -146,20 +159,42 @@ export function AppShell() {
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
-                  className="gap-1"
+                  size="icon-lg"
+                  className="rounded-full"
+                  aria-label={t("workbench.account")}
                 >
-                  <span className="max-w-40 truncate">{user?.email}</span>
-                  <ChevronDownIcon className="size-3.5" aria-hidden="true" />
+                  <UserAvatar user={user} className="size-7" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="truncate">
-                  {user?.email}
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <UserAvatar user={user} className="size-9" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {primaryLabel}
+                    </span>
+                    {primaryLabel === user?.email ? null : (
+                      <span className="truncate text-xs font-normal">
+                        {user?.email}
+                      </span>
+                    )}
+                  </span>
                 </DropdownMenuLabel>
-                <DropdownMenuItem disabled>
-                  {t(`common.role.${user?.role ?? "user"}`)}
-                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {ACCOUNT_ITEMS.filter(
+                  (item) => !("adminOnly" in item) || role === "admin"
+                ).map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <DropdownMenuItem
+                      key={item.to}
+                      onSelect={() => navigate(item.to)}
+                    >
+                      <Icon aria-hidden="true" />
+                      {t(item.labelKey)}
+                    </DropdownMenuItem>
+                  )
+                })}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => void signOut()}>
                   <LogOutIcon aria-hidden="true" />

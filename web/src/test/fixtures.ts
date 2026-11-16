@@ -26,6 +26,7 @@ export function me(overrides: Partial<Me> = {}): Me {
     id: 1,
     email: "owner@example.com",
     displayName: "Owner",
+    username: "",
     role: "admin",
     status: "active",
     emailVerified: true,
