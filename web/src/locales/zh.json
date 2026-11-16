@@ -239,6 +239,12 @@
   },
   "admin": {
     "title": "系统管理",
+    "tabs": {
+      "email": "邮件配置",
+      "registration": "注册与审核",
+      "users": "用户管理",
+      "maintenance": "数据库维护"
+    },
     "email": {
       "title": "邮件配置",
       "provider": "发送通道",
@@ -265,6 +271,8 @@
       "smtpHint": "465 端口使用隐式 TLS，其余端口使用 STARTTLS。"
     },
     "registration": {
+      "lockDisplayName": "禁止修改用户昵称",
+      "lockUsername": "禁止修改用户名",
       "title": "注册与审核",
       "enabled": "开放注册",
       "approvalRequired": "注册需要管理员批准",

@@ -60,13 +60,20 @@ describe("系统管理", () => {
       })
     )
 
+    const user = userEvent.setup()
     renderAdmin()
+
+    await user.click(
+      await screen.findByRole("tab", { name: "注册与审核" })
+    )
 
     const toggle = await screen.findByRole("switch", {
       name: "注册需要验证邮箱"
     })
     expect(toggle).toBeDisabled()
     expect(screen.getByText(/邮件未配置，无法开启该开关/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole("tab", { name: "邮件配置" }))
     expect(screen.getByText("邮件未配置")).toBeInTheDocument()
   })
 
@@ -74,9 +81,11 @@ describe("系统管理", () => {
     vi.mocked(adminApi.settings).mockResolvedValue(
       adminSettings({ registration: null })
     )
+    const user = userEvent.setup()
     renderAdmin()
 
-    expect(await screen.findByText("邮件配置")).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "邮件配置" })).toBeInTheDocument()
+    await user.click(screen.getByRole("tab", { name: "注册与审核" }))
     expect(screen.queryByText("开放注册")).not.toBeInTheDocument()
     expect(screen.queryByText("注册需要管理员批准")).not.toBeInTheDocument()
   })
@@ -174,6 +183,7 @@ describe("系统管理", () => {
     const user = userEvent.setup()
     renderAdmin()
 
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
     expect(await screen.findByText("pending@example.com")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "批准" }))
 
@@ -190,11 +200,28 @@ describe("系统管理", () => {
 
     const user = userEvent.setup()
     renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "数据库维护" }))
     await screen.findByRole("button", { name: "检查并升级数据库" })
     await user.click(screen.getByRole("button", { name: "检查并升级数据库" }))
 
     expect(await screen.findByText("迁移完成")).toBeInTheDocument()
     expect(screen.getAllByText("template_").length).toBeGreaterThan(0)
     expect(screen.getByText("已跳过")).toBeInTheDocument()
+  })
+
+  it("昵称锁定开关只提交被切换的字段", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.updateSettings).mockResolvedValue(adminSettings())
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "注册与审核" }))
+    await user.click(
+      await screen.findByRole("switch", { name: "禁止修改用户昵称" })
+    )
+
+    expect(adminApi.updateSettings).toHaveBeenCalledWith({
+      profileLocks: { displayNameLocked: true }
+    })
   })
 })
