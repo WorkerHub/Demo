@@ -104,15 +104,15 @@ describe("个人资料修改锁", () => {
     const mixed = await patchJson(
       env,
       "/api/me",
-      { displayName: "新昵称", theme: "dark" },
+      { displayName: "新昵称", timezone: "Europe/London" },
       { cookie }
     )
     expect(mixed.status).toBe(403)
     expect(await mixed.json()).toMatchObject({ code: "DISPLAY_NAME_LOCKED" })
 
-    // 主题未落库（整单拒绝，合法字段一并拒绝）
+    // 时区未落库（整单拒绝，合法字段一并拒绝）
     const me = await request(env, "/api/me", { headers: { cookie } })
-    expect(await me.json()).toMatchObject({ theme: "system" })
+    expect(await me.json()).toMatchObject({ timezone: "Asia/Shanghai" })
   })
 
   it("管理员也受限：管理员自己 PATCH 被禁字段同样 403", async () => {

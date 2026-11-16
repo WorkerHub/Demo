@@ -58,8 +58,6 @@ export interface Me {
   /** 首次登录强制改密（管理员建号等场景）；true 时前端引导强制改密后再放行。 */
   mustChangePassword: boolean
   language: string
-  /** 账号侧取值：system / light / dark（界面上的「自动」= system）。 */
-  theme: string
   timezone: string
   totpEnabled: boolean
   passkeyCount: number
@@ -83,7 +81,6 @@ export interface MeUpdateInput {
   displayName?: string
   username?: string
   language?: string
-  theme?: string
   timezone?: string
 }
 

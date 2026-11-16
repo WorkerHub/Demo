@@ -36,6 +36,9 @@ export const USERNAME_MIGRATION = "schema_v2"
 /** 首登强制改密迁移名：给 users 加 `must_change_password` 列。 */
 export const MUST_CHANGE_PASSWORD_MIGRATION = "schema_v3"
 
+/** 主题剥离迁移名：把 theme 从用户属性里删掉（主题只存前端 localStorage）。 */
+export const THEME_REMOVAL_MIGRATION = "schema_v4"
+
 /**
  * `users.username`（可自定义的用户名，`''` = 未设置）。
  *
@@ -96,6 +99,31 @@ function mustChangePasswordMigration(prefix: string): Migration {
   }
 }
 
+/**
+ * `users.theme` 退役（主题只存前端，不进用户属性）。
+ *
+ * - 删列走 `prepare`：先看 PRAGMA，列在才 DROP，重跑/中断重跑都幂等。
+ * - 无索引诉求，`sql` 留空（执行器对空 sql 幂等跳过）。
+ * - 全新库仍由冻结的 `schema_v1` 建出该列，本迁移紧接着删掉，两条路径收敛到同一形状。
+ * - 回滚：`ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'` 能恢复列（旧代码可跑），
+ *   但原值不可恢复；要取值只能靠 D1 Time Travel，所以执行前必须先备份。
+ */
+function themeRemovalMigration(prefix: string): Migration {
+  const table = usersTable(prefix)
+  return {
+    name: THEME_REMOVAL_MIGRATION,
+    sql: "",
+    prepare: async (ctx) => {
+      const columns = await ctx.db
+        .prepare(`PRAGMA table_info(${table})`)
+        .all<{ name: string }>()
+      if (columns.results.some((column) => column.name === "theme")) {
+        await ctx.db.prepare(`ALTER TABLE ${table} DROP COLUMN theme`).run()
+      }
+    }
+  }
+}
+
 export function getMigrations(prefix: string): Migration[] {
   const statements = baselineStatements(prefix)
   const sql = statements.join(";\n\n")
@@ -119,6 +147,7 @@ export function getMigrations(prefix: string): Migration[] {
   return [
     { name: BASELINE_MIGRATION, sql },
     usernameMigration(prefix),
-    mustChangePasswordMigration(prefix)
+    mustChangePasswordMigration(prefix),
+    themeRemovalMigration(prefix)
   ]
 }

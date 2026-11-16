@@ -189,8 +189,8 @@ describe("用户名", () => {
     const insert = db.db.prepare(
       `INSERT INTO ${table}
         (email, password_hash, role, status, email_verified, language,
-         display_name, username, timezone, theme, created_at, updated_at)
-       VALUES (?, 'hash', 'user', 'active', 1, 'zh', '', ?, 'Asia/Shanghai', 'system', ?, ?)`
+         display_name, username, timezone, created_at, updated_at)
+       VALUES (?, 'hash', 'user', 'active', 1, 'zh', '', ?, 'Asia/Shanghai', ?, ?)`
     )
     const now = new Date().toISOString()
 
