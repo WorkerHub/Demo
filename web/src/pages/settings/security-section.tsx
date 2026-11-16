@@ -2,6 +2,7 @@ import { QRCodeSVG } from "qrcode.react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
+import { PasswordChangeForm } from "@/components/password-change-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -32,11 +33,6 @@ export function SecuritySection() {
   const refresh = useAuthStore((state) => state.refresh)
   const passkeySupported = webauthnSupported()
 
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [passwordBusy, setPasswordBusy] = useState(false)
-  const [passwordError, setPasswordError] = useState("")
-
   const [totpSetup, setTotpSetup] = useState<{
     secret: string
     otpauthUrl: string
@@ -65,26 +61,6 @@ export function SecuritySection() {
   useEffect(() => {
     if (passkeySupported) void loadPasskeys()
   }, [loadPasskeys, passkeySupported])
-
-  const changePassword = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (newPassword.length < 8) {
-      setPasswordError(t("auth.validation.passwordTooShort"))
-      return
-    }
-    setPasswordBusy(true)
-    setPasswordError("")
-    try {
-      await meApi.changePassword({ currentPassword, newPassword })
-      setCurrentPassword("")
-      setNewPassword("")
-      toast.success(t("settings.security.passwordChanged"))
-    } catch (error) {
-      setPasswordError(describeApiError(t, error))
-    } finally {
-      setPasswordBusy(false)
-    }
-  }
 
   const startTotp = async () => {
     setTotpBusy(true)
@@ -188,40 +164,7 @@ export function SecuritySection() {
         <h3 className="font-heading text-sm font-semibold">
           {t("settings.security.passwordTitle")}
         </h3>
-        <form className="space-y-3" onSubmit={changePassword}>
-          <div className="space-y-1.5">
-            <Label htmlFor="security-current-password">
-              {t("common.currentPassword")}
-            </Label>
-            <Input
-              id="security-current-password"
-              name="current-password"
-              type="password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="security-new-password">
-              {t("common.newPassword")}
-            </Label>
-            <Input
-              id="security-new-password"
-              name="new-password"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-            />
-          </div>
-          {errorLine(passwordError)}
-          <Button type="submit" disabled={passwordBusy}>
-            {passwordBusy
-              ? t("common.actions.saving")
-              : t("settings.security.passwordSubmit")}
-          </Button>
-        </form>
+        <PasswordChangeForm idPrefix="security" />
       </section>
 
       <Separator />

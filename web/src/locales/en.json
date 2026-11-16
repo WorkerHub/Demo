@@ -135,6 +135,10 @@
       "codeInvalid": "The code is 6 digits"
     }
   },
+  "changePassword": {
+    "title": "Change password",
+    "subtitle": "Set a new password to continue"
+  },
   "setup": {
     "title": "Setup",
     "checking": "Checking setup state…",

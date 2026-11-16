@@ -135,6 +135,10 @@
       "codeInvalid": "验证码为 6 位数字"
     }
   },
+  "changePassword": {
+    "title": "修改密码",
+    "subtitle": "首次登录需要设置新密码"
+  },
   "setup": {
     "title": "初始化",
     "checking": "正在检查初始化状态…",
