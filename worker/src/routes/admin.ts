@@ -14,9 +14,11 @@ import {
   findUserByEmail,
   findUserById,
   insertAdminCreatedUser,
+  isUserStatus,
   isUsernameTaken,
-  listPendingUsers,
-  type UserRow
+  listUsers,
+  type UserRow,
+  type UserStatus
 } from "../db/queries/users"
 import { apiError, readJsonBody } from "../lib/http"
 import {
@@ -177,10 +179,18 @@ adminRoutes.post("/settings/test-email", async (c) => {
 })
 
 adminRoutes.get("/users", async (c) => {
-  // 目前只有「待批准」这一种筛选需求；参数保留给前端，取值不是 pending 时按 pending 处理。
+  // 全量用户（管理员用户列表）；`?status=` 可选，缺省返回全部。
   // 列表包裹字段与 /api/me/passkeys 一致：冻结契约为 { items }。
+  let status: UserStatus | undefined
+  const rawStatus = c.req.query("status")
+  if (rawStatus !== undefined) {
+    if (!isUserStatus(rawStatus)) {
+      return apiError(c, 400, "INVALID_STATUS", "Invalid status filter")
+    }
+    status = rawStatus
+  }
   const prefix = getTablePrefix(c.env)
-  return c.json({ items: await listPendingUsers(c.env.DB, prefix) })
+  return c.json({ items: await listUsers(c.env.DB, prefix, status) })
 })
 
 adminRoutes.post("/users/:id/approve", async (c) => {
