@@ -161,4 +161,39 @@ describe("路由与根门", () => {
     const trigger = await screen.findByRole("button", { name: "账号" })
     expect(within(trigger).getByText("水")).toBeInTheDocument()
   })
+  it("标签页 title 跟随页面并带站名后缀", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    renderAt(routes, "/login")
+    await screen.findByRole("heading", { name: "登录" })
+    expect(document.title).toBe("登录 · Template")
+  })
+
+  it("登录态工作台标签页 title 为「工作台 · 站名」", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    renderAt(routes, "/workbench")
+    await screen.findByRole("heading", { name: "工作台" })
+    expect(document.title).toBe("工作台 · Template")
+  })
+
+  it("侧栏站名是回工作台的链接，底部显示三段式版本号", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    renderAt(routes, "/workbench")
+    await screen.findByRole("heading", { name: "工作台" })
+
+    const brand = screen.getByRole("link", { name: "Template" })
+    expect(brand.getAttribute("href")).toBe("/workbench")
+    expect(
+      screen.getByText(/Template · \d+\.\d+\.\d+ · [0-9a-f]+\+build\.\d+/)
+    ).toBeInTheDocument()
+  })
 })

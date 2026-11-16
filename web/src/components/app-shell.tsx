@@ -29,6 +29,8 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet"
 import { UserAvatar } from "@/components/user-avatar"
+import { buildVersionLabel } from "@/lib/build-info"
+import { titleKeyFor } from "@/hooks/use-page-title"
 import { accountPrimaryLabel } from "@/lib/user-identity"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
@@ -40,15 +42,6 @@ const SIDEBAR_ITEMS = [
     icon: LayoutDashboardIcon
   }
 ] as const
-
-/** 顶栏标题按路径取，未命中回落工作台。 */
-const PAGE_TITLES: Record<string, string> = {
-  "/workbench": "workbench.nav.workbench",
-  "/profile": "profile.title",
-  "/settings": "settings.title",
-  "/about": "workbench.nav.about",
-  "/admin": "workbench.nav.admin"
-}
 
 /** 头像下拉里的页面入口；系统管理仍只对管理员显示。 */
 const ACCOUNT_ITEMS = [
@@ -106,7 +99,7 @@ export function AppShell() {
   const name = useSiteStore((state) => state.info?.name ?? "")
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  const titleKey = PAGE_TITLES[location.pathname] ?? "workbench.nav.workbench"
+  const titleKey = titleKeyFor(location.pathname)
   const primaryLabel = accountPrimaryLabel(user)
 
   const signOut = async () => {
@@ -117,10 +110,16 @@ export function AppShell() {
   return (
     <div className="flex min-h-svh bg-background text-foreground">
       <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-        <div className="flex h-14 items-center px-4 font-heading text-sm font-semibold tracking-tight">
+        <NavLink
+          to="/workbench"
+          className="flex h-14 items-center px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
           {name}
-        </div>
+        </NavLink>
         <Navigation />
+        <div className="mt-auto border-t border-sidebar-border px-4 py-3 text-xs text-sidebar-foreground/60">
+          {buildVersionLabel(name || undefined)}
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -140,7 +139,9 @@ export function AppShell() {
             <SheetContent side="left" className="w-64 bg-sidebar p-0">
               <SheetHeader className="border-b px-4 py-3">
                 <SheetTitle className="text-sm font-semibold">
-                  {name}
+                  <NavLink to="/workbench" onClick={() => setMobileOpen(false)}>
+                    {name}
+                  </NavLink>
                 </SheetTitle>
               </SheetHeader>
               <Navigation onNavigate={() => setMobileOpen(false)} />
