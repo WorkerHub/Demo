@@ -13,12 +13,12 @@ import type {
   AdminCreateUserResult,
   AdminSettings,
   AdminSettingsUpdate,
+  AdminUser,
   LoginResult,
   Me,
   MeUpdateInput,
   MigrationResult,
   PasskeySummary,
-  PendingUser,
   PublicInfo,
   RegisterResult,
   SetupOwnerInput,
@@ -264,8 +264,7 @@ export const adminApi = {
       body: input
     }),
 
-  pendingUsers: () =>
-    request<{ items: PendingUser[] }>("/admin/users?status=pending"),
+  users: () => request<{ items: AdminUser[] }>("/admin/users"),
 
   approveUser: (id: number) =>
     request<{ success: true }>(`/admin/users/${id}/approve`, {
