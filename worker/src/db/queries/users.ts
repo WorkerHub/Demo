@@ -13,6 +13,8 @@ export type UserRole = "admin" | "user"
 export interface UserRow {
   id: number
   email: string
+  /** 自定义用户名；`''` = 未设置（迁移 schema_v2 追加的列）。 */
+  username: string
   password_hash: string
   role: UserRole
   status: UserStatus
@@ -25,8 +27,8 @@ export interface UserRow {
   updated_at: string
 }
 
-const USER_COLUMNS = `id, email, password_hash, role, status, email_verified, language,
-  display_name, timezone, theme, created_at, updated_at`
+const USER_COLUMNS = `id, email, username, password_hash, role, status, email_verified,
+  language, display_name, timezone, theme, created_at, updated_at`
 
 export async function findUserByEmail(
   db: D1Database,
@@ -105,6 +107,7 @@ const UPDATABLE_FIELDS = [
   "email_verified",
   "language",
   "display_name",
+  "username",
   "timezone",
   "theme"
 ] as const
@@ -135,6 +138,26 @@ export async function updateUserFields(
     )
     .bind(...values, id)
     .run()
+}
+
+/**
+ * 用户名是否已被别人占用（不分大小写，与库层的部分唯一索引同口径）。
+ * `exceptUserId` 传自己：改成自己当前用户名（含大小写变体）不算冲突。
+ */
+export async function isUsernameTaken(
+  db: D1Database,
+  prefix: string,
+  username: string,
+  exceptUserId: number
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT 1 AS taken FROM ${usersTable(prefix)}
+        WHERE username = ? COLLATE NOCASE AND id <> ? LIMIT 1`
+    )
+    .bind(username, exceptUserId)
+    .first<{ taken: number }>()
+  return row !== null
 }
 
 export interface PendingUserView {
