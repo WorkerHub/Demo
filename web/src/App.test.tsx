@@ -22,7 +22,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     adminApi: {
       ...actual.adminApi,
       settings: vi.fn(),
-      pendingUsers: vi.fn()
+      users: vi.fn()
     }
   }
 })

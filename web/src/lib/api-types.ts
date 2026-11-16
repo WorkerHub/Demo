@@ -168,13 +168,6 @@ export interface AdminSettingsUpdate {
   }
 }
 
-export interface PendingUser {
-  id: number
-  email: string
-  displayName: string
-  createdAt: string
-}
-
 /** GET /api/admin/users 列表项：全量用户（`?status=pending` 时为其中待批准子集）。 */
 export interface AdminUser {
   id: number

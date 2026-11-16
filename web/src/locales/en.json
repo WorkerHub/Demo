@@ -285,14 +285,18 @@
       "emailVerificationInactive": "Email is not configured, so this switch has no effect and new users are not asked to verify."
     },
     "users": {
-      "title": "Pending users",
-      "empty": "No pending users",
+      "title": "All users",
+      "empty": "No users",
       "approve": "Approve",
       "reject": "Reject",
       "approved": "Approved",
       "rejected": "Rejected",
-      "requestedAt": "Requested {{date}}",
+      "createdAt": "Created {{date}}",
       "displayName": "Name",
+      "role": "Role",
+      "status": "Status",
+      "emailUnverified": "Email unverified",
+      "self": "You",
       "actions": "Actions",
       "create": {
         "title": "Create user",
