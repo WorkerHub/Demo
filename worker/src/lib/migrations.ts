@@ -83,9 +83,7 @@ function mustChangePasswordMigration(prefix: string): Migration {
         .prepare(`PRAGMA table_info(${table})`)
         .all<{ name: string }>()
       if (
-        columns.results.some(
-          (column) => column.name === "must_change_password"
-        )
+        columns.results.some((column) => column.name === "must_change_password")
       ) {
         return
       }

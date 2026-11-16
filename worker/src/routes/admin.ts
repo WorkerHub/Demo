@@ -15,7 +15,8 @@ import {
   findUserById,
   insertAdminCreatedUser,
   isUsernameTaken,
-  listPendingUsers
+  listPendingUsers,
+  type UserRow
 } from "../db/queries/users"
 import { apiError, readJsonBody } from "../lib/http"
 import {
@@ -279,7 +280,7 @@ adminRoutes.post("/users", async (c) => {
   const temporaryPassword = generateTemporaryPassword()
   const passwordHash = await hashPassword(temporaryPassword)
 
-  let user
+  let user: UserRow
   try {
     user = await insertAdminCreatedUser(c.env.DB, prefix, {
       email,
