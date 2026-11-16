@@ -117,6 +117,13 @@ describe("通行密钥", () => {
       { cookie: assertChallenge }
     )
     expect(verified.status).toBe(200)
+    const verifiedBody = (await verified.json()) as {
+      success: boolean
+      user: { email: string }
+    }
+    expect(verifiedBody.success).toBe(true)
+    expect(verifiedBody.user.email).toBe("owner@example.test")
+    expect("requires2fa" in verifiedBody).toBe(false)
     const session = cookieFrom(verified)
     expect(
       (await request(env, "/api/me", { headers: { cookie: session } })).status
