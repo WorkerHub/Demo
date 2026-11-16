@@ -28,6 +28,7 @@ import { currentUserId, requirePassword } from "../lib/account"
 import { apiError, readJsonBody } from "../lib/http"
 import { readProfileLockSettings } from "../lib/settings"
 import { getTablePrefix } from "../lib/table-prefix"
+import { isValidTimezone } from "../lib/timezone"
 import { buildUserView } from "../lib/user-view"
 import { normalizeUsername } from "../lib/username"
 import { normalizeLanguage } from "../locales/email"
@@ -36,17 +37,6 @@ import type { HonoEnv } from "../types"
 export const meRoutes = new Hono<HonoEnv>()
 
 const THEMES = ["light", "dark", "system"]
-
-/** IANA 时区名：交给运行时的 Intl 判，别自己维护清单。 */
-function isValidTimezone(value: string): boolean {
-  if (value.length === 0 || value.length > 64) return false
-  try {
-    new Intl.DateTimeFormat("en-US", { timeZone: value })
-    return true
-  } catch {
-    return false
-  }
-}
 
 type Ctx = Context<HonoEnv>
 
@@ -166,7 +156,8 @@ async function changePassword(c: Ctx): Promise<Response> {
   const prefix = getTablePrefix(c.env)
   const userId = currentUserId(c)
   await updateUserFields(c.env.DB, prefix, userId, {
-    password_hash: await hashPassword(newPassword)
+    password_hash: await hashPassword(newPassword),
+    must_change_password: 0
   })
   // 改密后其它会话立即失效，当前会话保留（规格 §5.6.2）。
   await revokeAllSessions(c.env.DB, prefix, userId, c.get("sessionId"))

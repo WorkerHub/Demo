@@ -178,7 +178,221 @@ describe("系统管理面", () => {
     expect(body.tablePrefix).toBe(activePrefix(env))
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "skipped" }
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
     ])
+  })
+})
+
+describe("管理员手动建号", () => {
+  it("建号返回一次性密码，首登 mustChangePassword=true，改密后清除", async () => {
+    const { env, db } = await initializedContext()
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+
+    const res = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "newbie@example.test", role: "user" },
+      { cookie: admin }
+    )
+    expect(res.status).toBe(200)
+    const created = (await res.json()) as {
+      id: number
+      email: string
+      role: string
+      status: string
+      temporaryPassword: string
+    }
+    expect(created).toMatchObject({
+      email: "newbie@example.test",
+      role: "user",
+      status: "active"
+    })
+    expect(created.temporaryPassword.length).toBeGreaterThanOrEqual(8)
+
+    // 库里只存哈希，不存明文；首登标记置 1，直接激活 + 已验证。
+    const row = db.db
+      .prepare(
+        `SELECT password_hash, must_change_password, status, email_verified
+           FROM ${usersTable(activePrefix(env))} WHERE email = ?`
+      )
+      .get("newbie@example.test") as {
+      password_hash: string
+      must_change_password: number
+      status: string
+      email_verified: number
+    }
+    expect(row.password_hash).not.toContain(created.temporaryPassword)
+    expect(row.must_change_password).toBe(1)
+    expect(row.status).toBe("active")
+    expect(row.email_verified).toBe(1)
+
+    // 一次性密码可登录，且下发 mustChangePassword=true。
+    const login = await loginUser(env, {
+      email: "newbie@example.test",
+      password: created.temporaryPassword
+    })
+    expect(login.status).toBe(200)
+    const loginBody = (await login.json()) as {
+      success: boolean
+      user: { mustChangePassword: boolean }
+    }
+    expect(loginBody.success).toBe(true)
+    expect(loginBody.user.mustChangePassword).toBe(true)
+    const cookie = cookieFrom(login)
+
+    // 改密成功后标记清除。
+    const changed = await putJson(
+      env,
+      "/api/me/password",
+      {
+        currentPassword: created.temporaryPassword,
+        newPassword: "new-strong-password"
+      },
+      { cookie }
+    )
+    expect(changed.status).toBe(200)
+
+    const me = await request(env, "/api/me", { headers: { cookie } })
+    expect(me.status).toBe(200)
+    const meBody = (await me.json()) as { mustChangePassword: boolean }
+    expect(meBody.mustChangePassword).toBe(false)
+  })
+
+  it("建号校验：非法邮箱 / 非法角色 / 重复邮箱", async () => {
+    const { env } = await initializedContext()
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+
+    const badEmail = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "not-an-email", role: "user" },
+      { cookie: admin }
+    )
+    expect(badEmail.status).toBe(400)
+    expect(await badEmail.json()).toMatchObject({ code: "INVALID_EMAIL" })
+
+    const badRole = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "x@example.test", role: "super" },
+      { cookie: admin }
+    )
+    expect(badRole.status).toBe(400)
+    expect(await badRole.json()).toMatchObject({ code: "INVALID_ROLE" })
+
+    const dup = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "owner@example.test", role: "user" },
+      { cookie: admin }
+    )
+    expect(dup.status).toBe(409)
+    expect(await dup.json()).toMatchObject({ code: "EMAIL_TAKEN" })
+  })
+
+  it("role=admin 且带全部可选字段：写入库并回显", async () => {
+    const { env, db } = await initializedContext()
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+
+    const res = await postJson(
+      env,
+      "/api/admin/users",
+      {
+        email: "boss@example.test",
+        role: "admin",
+        displayName: "Boss Liu",
+        username: "boss_liu",
+        language: "en",
+        timezone: "America/New_York"
+      },
+      { cookie: admin }
+    )
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({
+      email: "boss@example.test",
+      role: "admin",
+      status: "active"
+    })
+
+    const row = db.db
+      .prepare(
+        `SELECT role, status, display_name, username, language, timezone,
+                email_verified, must_change_password
+           FROM ${usersTable(activePrefix(env))} WHERE email = ?`
+      )
+      .get("boss@example.test") as {
+      role: string
+      status: string
+      display_name: string
+      username: string
+      language: string
+      timezone: string
+      email_verified: number
+      must_change_password: number
+    }
+    expect(row).toMatchObject({
+      role: "admin",
+      status: "active",
+      display_name: "Boss Liu",
+      username: "boss_liu",
+      language: "en",
+      timezone: "America/New_York",
+      email_verified: 1,
+      must_change_password: 1
+    })
+  })
+
+  it("可选字段校验：非法用户名 / 语言 / 时区、重复用户名", async () => {
+    const { env } = await initializedContext()
+    await registerUser(env, { email: "owner@example.test" })
+    const admin = await adminCookie(env)
+
+    const badUsername = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "u1@example.test", role: "user", username: "a" },
+      { cookie: admin }
+    )
+    expect(badUsername.status).toBe(400)
+    expect(await badUsername.json()).toMatchObject({ code: "INVALID_USERNAME" })
+
+    const badLanguage = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "u2@example.test", role: "user", language: "fr" },
+      { cookie: admin }
+    )
+    expect(badLanguage.status).toBe(400)
+    expect(await badLanguage.json()).toMatchObject({ code: "INVALID_LANGUAGE" })
+
+    const badTimezone = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "u3@example.test", role: "user", timezone: "Not/AZone" },
+      { cookie: admin }
+    )
+    expect(badTimezone.status).toBe(400)
+    expect(await badTimezone.json()).toMatchObject({ code: "INVALID_TIMEZONE" })
+
+    const first = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "dup1@example.test", role: "user", username: "dup_name" },
+      { cookie: admin }
+    )
+    expect(first.status).toBe(200)
+
+    const dupUsername = await postJson(
+      env,
+      "/api/admin/users",
+      { email: "dup2@example.test", role: "user", username: "dup_name" },
+      { cookie: admin }
+    )
+    expect(dupUsername.status).toBe(409)
+    expect(await dupUsername.json()).toMatchObject({ code: "USERNAME_TAKEN" })
   })
 })

@@ -7,11 +7,16 @@
  */
 import { Hono } from "hono"
 import { APP_MODE } from "../config/project"
+import { generateTemporaryPassword, hashPassword } from "../core/auth"
 import {
   approveUser,
   deletePendingUser,
+  findUserByEmail,
   findUserById,
-  listPendingUsers
+  insertAdminCreatedUser,
+  isUsernameTaken,
+  listPendingUsers,
+  type UserRow
 } from "../db/queries/users"
 import { apiError, readJsonBody } from "../lib/http"
 import {
@@ -24,10 +29,13 @@ import {
 } from "../lib/settings"
 import { runSetup } from "../lib/setup"
 import { getTablePrefix } from "../lib/table-prefix"
+import { isValidTimezone } from "../lib/timezone"
+import { normalizeUsername } from "../lib/username"
 import { adminMiddleware } from "../middleware/admin"
 import { normalizeLanguage, renderTestEmail } from "../locales/email"
 import {
   isEmailConfigured,
+  isValidEmail,
   saveEmailSettings,
   sendEmail,
   type EmailProvider,
@@ -203,4 +211,102 @@ adminRoutes.post("/users/:id/reject", async (c) => {
     return apiError(c, 409, "USER_NOT_PENDING", "User is not pending approval")
   }
   return c.json({ success: true })
+})
+
+adminRoutes.post("/users", async (c) => {
+  const body = await readJsonBody<{
+    email?: unknown
+    role?: unknown
+    displayName?: unknown
+    username?: unknown
+    language?: unknown
+    timezone?: unknown
+  }>(c)
+  if (!body) return apiError(c, 400, "INVALID_REQUEST", "Invalid request body")
+
+  const email =
+    typeof body.email === "string" ? body.email.trim().toLowerCase() : ""
+  if (!isValidEmail(email)) {
+    return apiError(c, 400, "INVALID_EMAIL", "Invalid email address")
+  }
+
+  const role = body.role
+  if (role !== "admin" && role !== "user") {
+    return apiError(c, 400, "INVALID_ROLE", "Role must be admin or user")
+  }
+
+  const prefix = getTablePrefix(c.env)
+  if (await findUserByEmail(c.env.DB, prefix, email)) {
+    return apiError(c, 409, "EMAIL_TAKEN", "Email is already registered")
+  }
+
+  let displayName = ""
+  if (body.displayName !== undefined) {
+    if (typeof body.displayName !== "string") {
+      return apiError(c, 400, "INVALID_DISPLAY_NAME", "Invalid display name")
+    }
+    displayName = body.displayName.trim().slice(0, 80)
+  }
+
+  let username = ""
+  if (body.username !== undefined) {
+    const normalized = normalizeUsername(body.username)
+    if (!normalized) {
+      return apiError(c, 400, "INVALID_USERNAME", "Invalid username")
+    }
+    if (await isUsernameTaken(c.env.DB, prefix, normalized, 0)) {
+      return apiError(c, 409, "USERNAME_TAKEN", "Username is already taken")
+    }
+    username = normalized
+  }
+
+  let language = "zh"
+  if (body.language !== undefined) {
+    const normalized = normalizeLanguage(body.language)
+    if (!normalized) {
+      return apiError(c, 400, "INVALID_LANGUAGE", "Unsupported language")
+    }
+    language = normalized
+  }
+
+  let timezone = "Asia/Shanghai"
+  if (body.timezone !== undefined) {
+    if (typeof body.timezone !== "string" || !isValidTimezone(body.timezone)) {
+      return apiError(c, 400, "INVALID_TIMEZONE", "Invalid timezone")
+    }
+    timezone = body.timezone
+  }
+
+  const temporaryPassword = generateTemporaryPassword()
+  const passwordHash = await hashPassword(temporaryPassword)
+
+  let user: UserRow
+  try {
+    user = await insertAdminCreatedUser(c.env.DB, prefix, {
+      email,
+      passwordHash,
+      role,
+      displayName,
+      username,
+      language,
+      timezone
+    })
+  } catch (err) {
+    if (err instanceof Error && /UNIQUE/i.test(err.message)) {
+      // 预检与写入之间被并发抢先：按约束命中的列归因，email 与 username 各回各的码。
+      if (/email/i.test(err.message)) {
+        return apiError(c, 409, "EMAIL_TAKEN", "Email is already registered")
+      }
+      return apiError(c, 409, "USERNAME_TAKEN", "Username is already taken")
+    }
+    throw err
+  }
+
+  return c.json({
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    status: "active",
+    temporaryPassword
+  })
 })

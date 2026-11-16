@@ -33,6 +33,9 @@ export const BASELINE_MIGRATION = "schema_v1"
 /** 用户名迁移名：给 users 加 `username` 列与部分唯一索引。 */
 export const USERNAME_MIGRATION = "schema_v2"
 
+/** 首登强制改密迁移名：给 users 加 `must_change_password` 列。 */
+export const MUST_CHANGE_PASSWORD_MIGRATION = "schema_v3"
+
 /**
  * `users.username`（可自定义的用户名，`''` = 未设置）。
  *
@@ -63,6 +66,36 @@ function usernameMigration(prefix: string): Migration {
   }
 }
 
+/**
+ * `users.must_change_password`（管理员建号的首次强制改密标记，0/1）。
+ *
+ * - 加列走 `prepare`：先看 PRAGMA 再 ALTER，列已在时跳过（幂等，重跑不报 duplicate column）。
+ * - 无索引诉求，`sql` 留空（执行器对空 sql 幂等跳过）。
+ * - 回滚：加列对旧代码无副作用（默认 0），无需专门回滚动作。
+ */
+function mustChangePasswordMigration(prefix: string): Migration {
+  const table = usersTable(prefix)
+  return {
+    name: MUST_CHANGE_PASSWORD_MIGRATION,
+    sql: "",
+    prepare: async (ctx) => {
+      const columns = await ctx.db
+        .prepare(`PRAGMA table_info(${table})`)
+        .all<{ name: string }>()
+      if (
+        columns.results.some((column) => column.name === "must_change_password")
+      ) {
+        return
+      }
+      await ctx.db
+        .prepare(
+          `ALTER TABLE ${table} ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`
+        )
+        .run()
+    }
+  }
+}
+
 export function getMigrations(prefix: string): Migration[] {
   const statements = baselineStatements(prefix)
   const sql = statements.join(";\n\n")
@@ -83,5 +116,9 @@ export function getMigrations(prefix: string): Migration[] {
     }
   }
 
-  return [{ name: BASELINE_MIGRATION, sql }, usernameMigration(prefix)]
+  return [
+    { name: BASELINE_MIGRATION, sql },
+    usernameMigration(prefix),
+    mustChangePasswordMigration(prefix)
+  ]
 }

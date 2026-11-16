@@ -852,7 +852,9 @@ authRoutes.post("/password/reset", async (c) => {
   }
 
   await updateUserFields(c.env.DB, prefix, user.id, {
-    password_hash: await hashPassword(newPassword)
+    password_hash: await hashPassword(newPassword),
+    // 邮件重置同样完成了「设新密码」，首登强制改密标记一并清除。
+    must_change_password: 0
   })
   await revokeAllSessions(c.env.DB, prefix, user.id)
   return c.json({ success: true })
