@@ -51,6 +51,7 @@
     "generic": "Something went wrong. Please try again.",
     "network": "Network error. Check your connection and try again.",
     "setupSecret": "Incorrect secret",
+    "notFound": "Page not found",
     "codes": {
       "INVALID_CREDENTIALS": "Incorrect email or password",
       "EMAIL_NOT_VERIFIED": "Email is not verified yet",
