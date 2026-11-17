@@ -41,6 +41,15 @@ if (typeof Element !== "undefined") {
   }
 }
 
+// jsdom 未实现 ResizeObserver，Radix Popper / Tooltip 测量锚点尺寸时会 new 它。
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver
+}
+
 async function resetStores() {
   const [
     { useAuthStore },
