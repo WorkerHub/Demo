@@ -49,6 +49,7 @@ import {
   SidebarRail
 } from "@/components/ui/sidebar"
 import { UserAvatar } from "@/components/user-avatar"
+import { titleKeyFor } from "@/hooks/use-page-title"
 import { buildVersionLabel } from "@/lib/build-info"
 import {
   clampSidebarWidth,
@@ -57,7 +58,6 @@ import {
   writeSidebarOpen,
   writeSidebarWidth
 } from "@/lib/sidebar"
-import { titleKeyFor } from "@/hooks/use-page-title"
 import { accountPrimaryLabel } from "@/lib/user-identity"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
