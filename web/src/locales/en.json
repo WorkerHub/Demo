@@ -321,5 +321,10 @@
       "applied": "Applied",
       "skipped": "Skipped"
     }
+  },
+  "sidebar": {
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "resize": "Resize sidebar"
   }
 }

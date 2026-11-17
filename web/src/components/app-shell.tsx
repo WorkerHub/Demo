@@ -7,7 +7,8 @@ import {
   ShieldCheckIcon,
   UserIcon
 } from "lucide-react"
-import { useState } from "react"
+import { useCallback, useRef, useState } from "react"
+import type * as React from "react"
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router"
 import { LanguageCycleButton } from "@/components/language-toggle"
@@ -28,6 +29,20 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger
+} from "@/components/ui/sidebar"
 import { UserAvatar } from "@/components/user-avatar"
 import { buildVersionLabel } from "@/lib/build-info"
 import { titleKeyFor } from "@/hooks/use-page-title"
@@ -55,6 +70,44 @@ const ACCOUNT_ITEMS = [
   { to: "/settings", labelKey: "workbench.nav.settings", icon: SettingsIcon },
   { to: "/about", labelKey: "workbench.nav.about", icon: InfoIcon }
 ] as const
+
+/** 侧栏宽度：只存本机 localStorage，不进用户属性（同主题口径）。 */
+const SIDEBAR_WIDTH_STORAGE_KEY = "app-sidebar-width"
+const SIDEBAR_OPEN_STORAGE_KEY = "app-sidebar-open"
+const SIDEBAR_WIDTH_DEFAULT = 240
+const SIDEBAR_WIDTH_MIN = 200
+const SIDEBAR_WIDTH_MAX = 360
+/** 位移超过该值才算拖动，否则视为点击收起/展开。 */
+const SIDEBAR_DRAG_THRESHOLD = 3
+
+function clampWidth(value: number): number {
+  if (!Number.isFinite(value)) return SIDEBAR_WIDTH_DEFAULT
+  return Math.min(
+    SIDEBAR_WIDTH_MAX,
+    Math.max(SIDEBAR_WIDTH_MIN, Math.round(value))
+  )
+}
+
+function readStoredWidth(): number {
+  if (typeof window === "undefined") return SIDEBAR_WIDTH_DEFAULT
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
+    if (raw === null) return SIDEBAR_WIDTH_DEFAULT
+    return clampWidth(Number(raw))
+  } catch {
+    return SIDEBAR_WIDTH_DEFAULT
+  }
+}
+
+function readStoredOpen(): boolean {
+  if (typeof window === "undefined") return true
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_OPEN_STORAGE_KEY)
+    return raw === null ? true : raw !== "false"
+  } catch {
+    return true
+  }
+}
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation()
@@ -86,8 +139,10 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
 /**
  * 登录后的应用壳：侧边栏 + 顶栏 + 内容区（技术方案 §3C 的三件套骨架）。
  *
- * 侧栏只留工作台；个人资料 / 系统管理 / 设置 / 关于在顶栏头像菜单里
- * （系统管理按角色隐藏，接口层另有 403）。移动端把同一份侧栏装进 Sheet。
+ * 侧栏用 shadcn 官方 Sidebar（collapsible="icon"）：右缘可拖宽、底部收起/展开、
+ * 收起后为图标栏（悬停出名称）。宽度与展开状态只存 localStorage。移动端沿用
+ * 顶栏汉堡打开的原 Sheet 抽屉，侧栏与账号菜单（个人资料 / 系统管理 / 设置 /
+ * 关于）的信息架构不变。
  */
 export function AppShell() {
   const { t } = useTranslation()
@@ -99,8 +154,90 @@ export function AppShell() {
   const name = useSiteStore((state) => state.info?.name ?? "")
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  const [open, setOpen] = useState(readStoredOpen)
+  const [width, setWidth] = useState(readStoredWidth)
+  const [resizing, setResizing] = useState(false)
+  const dragRef = useRef<{
+    startX: number
+    startWidth: number
+    dragged: boolean
+  } | null>(null)
+  const suppressClickRef = useRef(false)
+
   const titleKey = titleKeyFor(location.pathname)
   const primaryLabel = accountPrimaryLabel(user)
+
+  const persistOpen = useCallback((next: boolean) => {
+    setOpen(next)
+    try {
+      window.localStorage.setItem(SIDEBAR_OPEN_STORAGE_KEY, String(next))
+    } catch {
+      // localStorage 被禁用时不阻塞交互。
+    }
+  }, [])
+
+  const persistWidth = useCallback((next: number) => {
+    setWidth(next)
+    try {
+      window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(next))
+    } catch {
+      // localStorage 被禁用时不阻塞交互。
+    }
+  }, [])
+
+  const onRailPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      suppressClickRef.current = false
+      // 收起态右缘只做点击展开，不拖宽。
+      if (!open) return
+      dragRef.current = {
+        startX: event.clientX,
+        startWidth: width,
+        dragged: false
+      }
+
+      // 用 window 级监听收指针移动：右缘只有 16px 宽，指针一旦移出按钮，
+      // 元素级 onPointerMove 就收不到了（headless Chrome 下 setPointerCapture
+      // 实测也不可靠）。
+      const onMove = (e: PointerEvent) => {
+        const drag = dragRef.current
+        if (!drag) return
+        const dx = e.clientX - drag.startX
+        if (Math.abs(dx) > SIDEBAR_DRAG_THRESHOLD) {
+          drag.dragged = true
+          setResizing(true)
+        }
+        if (drag.dragged) {
+          setWidth(clampWidth(drag.startWidth + dx))
+        }
+      }
+      const onEnd = (e: PointerEvent) => {
+        const drag = dragRef.current
+        dragRef.current = null
+        window.removeEventListener("pointermove", onMove)
+        window.removeEventListener("pointerup", onEnd)
+        window.removeEventListener("pointercancel", onEnd)
+        if (drag?.dragged) {
+          persistWidth(clampWidth(drag.startWidth + e.clientX - drag.startX))
+          // 拖动松手后的 click 不再触发收起/展开。
+          suppressClickRef.current = true
+        }
+        setResizing(false)
+      }
+      window.addEventListener("pointermove", onMove)
+      window.addEventListener("pointerup", onEnd)
+      window.addEventListener("pointercancel", onEnd)
+    },
+    [open, width, persistWidth]
+  )
+
+  const onRailClick = useCallback(() => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    persistOpen(!open)
+  }, [persistOpen, open])
 
   const signOut = async () => {
     await logout()
@@ -108,19 +245,75 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex min-h-svh bg-background text-foreground">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-        <NavLink
-          to="/workbench"
-          className="flex h-14 items-center px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          {name}
-        </NavLink>
-        <Navigation />
-        <div className="mt-auto border-t border-sidebar-border px-4 py-3 text-xs text-sidebar-foreground/60">
-          {buildVersionLabel(name || undefined)}
-        </div>
-      </aside>
+    <SidebarProvider
+      open={open}
+      onOpenChange={persistOpen}
+      data-resizing={resizing ? "" : undefined}
+      style={{ "--sidebar-width": `${width}px` } as React.CSSProperties}
+      className="min-h-svh bg-background text-foreground"
+    >
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="p-0">
+          <NavLink
+            to="/workbench"
+            aria-label={name || undefined}
+            title={name}
+            className="flex h-14 items-center px-3 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <span className="truncate group-data-[collapsible=icon]:hidden">
+              {name}
+            </span>
+            <span
+              aria-hidden="true"
+              className="hidden size-4 shrink-0 text-center text-base leading-4 group-data-[collapsible=icon]:inline-block"
+            >
+              {name.slice(0, 1)}
+            </span>
+          </NavLink>
+        </SidebarHeader>
+        <SidebarContent>
+          <nav>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {SIDEBAR_ITEMS.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <SidebarMenuItem key={item.to}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location.pathname === item.to}
+                          tooltip={t(item.labelKey)}
+                        >
+                          <NavLink to={item.to}>
+                            <Icon aria-hidden="true" />
+                            <span>{t(item.labelKey)}</span>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </nav>
+        </SidebarContent>
+        <SidebarFooter className="gap-1">
+          <div className="truncate px-2 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
+            {buildVersionLabel(name || undefined)}
+          </div>
+          <SidebarTrigger
+            aria-label={t(open ? "sidebar.collapse" : "sidebar.expand")}
+            title={t(open ? "sidebar.collapse" : "sidebar.expand")}
+          />
+        </SidebarFooter>
+        <SidebarRail
+          aria-label={t("sidebar.resize")}
+          title={t("sidebar.resize")}
+          onPointerDown={onRailPointerDown}
+          onClick={onRailClick}
+        />
+      </Sidebar>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
@@ -210,6 +403,6 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }

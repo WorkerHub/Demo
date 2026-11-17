@@ -112,3 +112,9 @@
     @apply font-sans;
   }
 }
+
+/* 拖宽期间关闭官方 200ms 宽度过渡，让侧栏贴着指针走；松手恢复。 */
+[data-slot="sidebar-wrapper"][data-resizing] [data-slot="sidebar-gap"],
+[data-slot="sidebar-wrapper"][data-resizing] [data-slot="sidebar-container"] {
+  transition: none;
+}
