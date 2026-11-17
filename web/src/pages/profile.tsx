@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { PencilIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -9,6 +9,25 @@ import { Label } from "@/components/ui/label"
 import { meApi } from "@/lib/api"
 import { describeApiError } from "@/lib/api-errors"
 import { useAuthStore } from "@/stores/auth"
+
+/** 资料行的统一栅格：标签列宽与行距只在这里定义一次，三行共用。 */
+const PROFILE_ROWS = "grid gap-3 text-sm sm:grid-cols-[8rem_1fr]"
+
+/** 一行「标签 + 值」：昵称、邮箱、角色三行共用同一标签订单与值布局。 */
+function ProfileRow({
+  label,
+  children
+}: {
+  label: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 items-center gap-2">{children}</dd>
+    </>
+  )
+}
 
 /** 个人资料页：默认只读展示昵称，点「编辑」才出现输入框；昵称锁开启时编辑按钮置灰。 */
 export function ProfilePage() {
@@ -23,6 +42,17 @@ export function ProfilePage() {
   if (!user) return null
 
   const locked = user.profileLocks.displayNameLocked
+
+  const emailCell = (
+    <>
+      <span className="break-all">{user.email}</span>
+      <Badge variant={user.emailVerified ? "secondary" : "outline"}>
+        {user.emailVerified
+          ? t("profile.emailVerified")
+          : t("profile.emailUnverified")}
+      </Badge>
+    </>
+  )
 
   const startEdit = () => {
     setDisplayName(user.displayName)
@@ -56,18 +86,27 @@ export function ProfilePage() {
     <div className="mx-auto max-w-3xl space-y-6">
       {editing ? (
         <form className="space-y-4" onSubmit={save}>
-          <div className="space-y-1.5">
-            <Label htmlFor="profile-display-name">
-              {t("profile.displayName")}
-            </Label>
-            <Input
-              id="profile-display-name"
-              name="display-name"
-              autoComplete="name"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-            />
-          </div>
+          <dl className={PROFILE_ROWS}>
+            <ProfileRow
+              label={
+                <Label htmlFor="profile-display-name">
+                  {t("profile.displayName")}
+                </Label>
+              }
+            >
+              <Input
+                id="profile-display-name"
+                name="display-name"
+                autoComplete="name"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+            </ProfileRow>
+            <ProfileRow label={t("profile.email")}>{emailCell}</ProfileRow>
+            <ProfileRow label={t("profile.role")}>
+              {t(`common.role.${user.role}`)}
+            </ProfileRow>
+          </dl>
 
           {error ? (
             <p role="alert" className="text-sm text-destructive">
@@ -102,29 +141,17 @@ export function ProfilePage() {
               {t("common.actions.edit")}
             </Button>
           </div>
-          <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
-            <dt className="text-muted-foreground">
-              {t("profile.displayName")}
-            </dt>
-            <dd>{user.displayName}</dd>
+          <dl className={PROFILE_ROWS}>
+            <ProfileRow label={t("profile.displayName")}>
+              {user.displayName}
+            </ProfileRow>
+            <ProfileRow label={t("profile.email")}>{emailCell}</ProfileRow>
+            <ProfileRow label={t("profile.role")}>
+              {t(`common.role.${user.role}`)}
+            </ProfileRow>
           </dl>
         </section>
       )}
-
-      <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
-        <dt className="text-muted-foreground">{t("profile.email")}</dt>
-        <dd className="flex items-center gap-2">
-          <span className="break-all">{user.email}</span>
-          <Badge variant={user.emailVerified ? "secondary" : "outline"}>
-            {user.emailVerified
-              ? t("profile.emailVerified")
-              : t("profile.emailUnverified")}
-          </Badge>
-        </dd>
-
-        <dt className="text-muted-foreground">{t("profile.role")}</dt>
-        <dd>{t(`common.role.${user.role}`)}</dd>
-      </dl>
     </div>
   )
 }

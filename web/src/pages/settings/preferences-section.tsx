@@ -2,7 +2,6 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { LanguageSegmented } from "@/components/language-toggle"
-import { ThemeSegmented } from "@/components/theme-toggle"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -65,10 +64,9 @@ const COMMON_TIME_ZONES: string[] = [
 ]
 
 /**
- * 设置 · 偏好：语言、主题、时区。
+ * 设置 · 偏好：语言与时区。
  *
- * 语言与时区立即生效并写回账号（`PUT /api/me`）；主题只存本机（`useThemeStore`
- * 的 localStorage persist），不进账号。
+ * 两项都立即生效并写回账号（`PUT /api/me`）；主题只存本机，入口在顶栏按钮。
  */
 export function PreferencesSection() {
   const { t } = useTranslation()
@@ -107,12 +105,6 @@ export function PreferencesSection() {
           {t("settings.preferences.languageHint")}
         </p>
       </div>
-
-      <div className="space-y-2">
-        <Label>{t("settings.preferences.theme")}</Label>
-        <ThemeSegmented />
-      </div>
-
       <div className="space-y-2">
         <Label htmlFor="preferences-timezone">
           {t("settings.preferences.timezone")}

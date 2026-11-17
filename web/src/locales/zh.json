@@ -17,6 +17,8 @@
     "password": "密码",
     "newPassword": "新密码",
     "currentPassword": "当前密码",
+    "confirmPassword": "确认新密码",
+    "passwordMismatch": "两次输入的新密码不一致",
     "code": "验证码",
     "codeSent": "验证码已发送",
     "codeExpires": "验证码 {{minutes}} 分钟内有效",
@@ -203,7 +205,6 @@
     "preferences": {
       "language": "界面语言",
       "languageHint": "切换后立即生效，并保存到账号。",
-      "theme": "主题",
       "timezone": "时区",
       "saved": "偏好已保存"
     }

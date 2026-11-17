@@ -37,6 +37,29 @@ describe("个人资料页", () => {
     expect(screen.getByRole("button", { name: "编辑" })).toBeEnabled()
   })
 
+  it("昵称、邮箱、角色三行同属一张列表，标签依次排列", () => {
+    const { container } = render(<ProfilePage />)
+
+    const lists = container.querySelectorAll("dl")
+    expect(lists).toHaveLength(1)
+    const labels = [...lists[0].querySelectorAll("dt")].map(
+      (term) => term.textContent
+    )
+    expect(labels).toEqual(["昵称", "邮箱", "角色"])
+  })
+
+  it("编辑态仍是同一张三行列表，昵称行换成输入框", async () => {
+    const user = userEvent.setup()
+    const { container } = render(<ProfilePage />)
+
+    await user.click(screen.getByRole("button", { name: "编辑" }))
+
+    const lists = container.querySelectorAll("dl")
+    expect(lists).toHaveLength(1)
+    expect(lists[0].querySelectorAll("dt")).toHaveLength(3)
+    expect(screen.getByLabelText("昵称")).toHaveValue("Owner")
+  })
+
   it("点「编辑」后只出现昵称输入框并回填当前值", async () => {
     useAuthStore.setState({
       user: me({ displayName: "Owner" }),

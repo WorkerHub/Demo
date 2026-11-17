@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { SettingsPage } from "@/pages/settings"
 import { useAuthStore } from "@/stores/auth"
-import { useThemeStore } from "@/stores/theme"
 import { me } from "@/test/fixtures"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -54,19 +53,19 @@ describe("设置页", () => {
     expect(document.documentElement.lang).toBe("en")
   })
 
-  it("主题切换只写本机，不调账号接口", async () => {
+  it("偏好页不再提供主题控件，主题只在顶栏切换", async () => {
     const user = userEvent.setup()
     renderSettings()
 
     await user.click(screen.getByRole("tab", { name: "偏好" }))
-    await user.click(screen.getByRole("radio", { name: "暗色" }))
 
-    expect(useThemeStore.getState().theme).toBe("dark")
-    const stored = JSON.parse(localStorage.getItem("app-theme") ?? "{}") as {
-      state?: { theme?: string }
-    }
-    expect(stored.state?.theme).toBe("dark")
-    expect(meApi.update).not.toHaveBeenCalled()
+    expect(
+      screen.queryByRole("radio", { name: "暗色" })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("radio", { name: "亮色" })
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText("主题")).not.toBeInTheDocument()
   })
 
   it("时区下拉只列常用时区", async () => {
@@ -99,13 +98,14 @@ describe("设置页", () => {
     expect(options[0].textContent).toBe("America/Adak")
   })
 
-  it("修改密码提交当前密码与新密码", async () => {
+  it("修改密码提交当前密码与新密码，成功后清空三个输入", async () => {
     const user = userEvent.setup()
     renderSettings()
 
     await user.click(screen.getByRole("tab", { name: "安全" }))
     await user.type(screen.getByLabelText("当前密码"), "old-password")
     await user.type(screen.getByLabelText("新密码"), "brand-new-password")
+    await user.type(screen.getByLabelText("确认新密码"), "brand-new-password")
     await user.click(screen.getByRole("button", { name: "更新密码" }))
 
     await waitFor(() =>
@@ -114,6 +114,9 @@ describe("设置页", () => {
         newPassword: "brand-new-password"
       })
     )
+    expect(screen.getByLabelText("当前密码")).toHaveValue("")
+    expect(screen.getByLabelText("新密码")).toHaveValue("")
+    expect(screen.getByLabelText("确认新密码")).toHaveValue("")
   })
 
   it("标签只保留安全与偏好，默认选中安全", () => {

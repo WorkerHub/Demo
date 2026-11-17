@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import userEvent, { type UserEvent } from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
@@ -34,6 +34,12 @@ function renderPage(state?: { from?: string }) {
   )
 }
 
+async function fillPasswords(user: UserEvent, confirm = NEXT) {
+  await user.type(screen.getByLabelText("当前密码"), CURRENT)
+  await user.type(screen.getByLabelText("新密码"), NEXT)
+  await user.type(screen.getByLabelText("确认新密码"), confirm)
+}
+
 beforeEach(() => {
   useAuthStore.setState({
     user: me({ mustChangePassword: true }),
@@ -48,8 +54,7 @@ describe("首登强制改密页", () => {
     const user = userEvent.setup()
     renderPage()
 
-    await user.type(screen.getByLabelText("当前密码"), CURRENT)
-    await user.type(screen.getByLabelText("新密码"), NEXT)
+    await fillPasswords(user)
     await user.click(screen.getByRole("button", { name: "更新密码" }))
 
     await waitFor(() =>
@@ -74,6 +79,19 @@ describe("首登强制改密页", () => {
     expect(meApi.changePassword).not.toHaveBeenCalled()
   })
 
+  it("两次输入的新密码不一致时只提示，不发请求", async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await fillPasswords(user, "different-password-2026")
+    await user.click(screen.getByRole("button", { name: "更新密码" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "两次输入的新密码不一致"
+    )
+    expect(meApi.changePassword).not.toHaveBeenCalled()
+  })
+
   it("当前密码错误时留在页面并显示提示", async () => {
     vi.mocked(meApi.changePassword).mockRejectedValue(
       new ApiError({
@@ -87,6 +105,7 @@ describe("首登强制改密页", () => {
 
     await user.type(screen.getByLabelText("当前密码"), "wrong-password")
     await user.type(screen.getByLabelText("新密码"), NEXT)
+    await user.type(screen.getByLabelText("确认新密码"), NEXT)
     await user.click(screen.getByRole("button", { name: "更新密码" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent("当前密码不正确")
@@ -105,8 +124,7 @@ describe("首登强制改密页", () => {
     const user = userEvent.setup()
     renderPage({ from: "/settings" })
 
-    await user.type(screen.getByLabelText("当前密码"), CURRENT)
-    await user.type(screen.getByLabelText("新密码"), NEXT)
+    await fillPasswords(user)
     await user.click(screen.getByRole("button", { name: "更新密码" }))
 
     expect(await screen.findByText("settings")).toBeInTheDocument()
