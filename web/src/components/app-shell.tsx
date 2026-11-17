@@ -19,6 +19,7 @@ import {
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router"
 import { LanguageCycleButton } from "@/components/language-toggle"
+import { SiteLogo } from "@/components/site-logo"
 import { ThemeCycleButton } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -227,8 +228,9 @@ export function AppShell() {
         <SidebarHeader className="p-0">
           <NavLink
             to="/workbench"
-            className="flex h-14 items-center px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+            className="flex h-14 items-center gap-2 px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
           >
+            <SiteLogo />
             {name}
           </NavLink>
         </SidebarHeader>
@@ -300,7 +302,12 @@ export function AppShell() {
             <SheetContent side="left" className="w-64 bg-sidebar p-0">
               <SheetHeader className="border-b px-4 py-3">
                 <SheetTitle className="text-sm font-semibold">
-                  <NavLink to="/workbench" onClick={() => setMobileOpen(false)}>
+                  <NavLink
+                    to="/workbench"
+                    onClick={() => setMobileOpen(false)}
+                    className="inline-flex items-center gap-2"
+                  >
+                    <SiteLogo />
                     {name}
                   </NavLink>
                 </SheetTitle>
