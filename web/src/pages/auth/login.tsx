@@ -410,7 +410,11 @@ export function LoginPage() {
                   className="w-full"
                   disabled={busy}
                   onClick={() => {
-                    setStep({ kind: "email", tempToken: step.tempToken, methods: step.methods })
+                    setStep({
+                      kind: "email",
+                      tempToken: step.tempToken,
+                      methods: step.methods
+                    })
                     setCode("")
                     setError("")
                     setNotice("")
@@ -521,7 +525,11 @@ export function LoginPage() {
             variant="ghost"
             className="w-full"
             onClick={() => {
-              setStep({ kind: "totp", tempToken: step.tempToken, methods: step.methods })
+              setStep({
+                kind: "totp",
+                tempToken: step.tempToken,
+                methods: step.methods
+              })
               setCode("")
               setError("")
               setNotice("")

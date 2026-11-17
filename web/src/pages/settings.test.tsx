@@ -121,12 +121,17 @@ describe("设置页", () => {
         info: publicInfo({ emailConfigured: false }),
         loaded: true
       })
-      useAuthStore.setState({ user: me({ emailTwoFactorEnabled: false }), status: "ready" })
+      useAuthStore.setState({
+        user: me({ emailTwoFactorEnabled: false }),
+        status: "ready"
+      })
       renderSettings()
 
       expect(screen.getByText(/邮件未配置|Not configured/i)).toBeInTheDocument()
       expect(
-        screen.queryByRole("button", { name: /发送验证码|Send code|common.sendCode/i })
+        screen.queryByRole("button", {
+          name: /发送验证码|Send code|common.sendCode/i
+        })
       ).not.toBeInTheDocument()
     })
 
@@ -157,10 +162,11 @@ describe("设置页", () => {
       expect(authApi.emailTwoFactorEnableSend).toHaveBeenCalledTimes(1)
 
       // 输入验证码并提交
-      await user.type(screen.getByLabelText(/验证码|Verification code/), "123456")
-      await user.click(
-        screen.getByRole("button", { name: /确认开启|Confirm/ })
+      await user.type(
+        screen.getByLabelText(/验证码|Verification code/),
+        "123456"
       )
+      await user.click(screen.getByRole("button", { name: /确认开启|Confirm/ }))
       expect(authApi.emailTwoFactorEnable).toHaveBeenCalledWith("123456")
     })
 
@@ -181,11 +187,11 @@ describe("设置页", () => {
 
       await user.click(screen.getByRole("tab", { name: /安全|security/i }))
       // 邮箱禁用表单的密码框有唯一 id
-      const pwInput = screen.getByLabelText(/当前密码|Current password/i, { selector: '#email-disable-password' })
+      const pwInput = screen.getByLabelText(/当前密码|Current password/i, {
+        selector: "#email-disable-password"
+      })
       await user.type(pwInput, "current-pw")
-      await user.click(
-        screen.getByRole("button", { name: /关闭|Close/i })
-      )
+      await user.click(screen.getByRole("button", { name: /关闭|Close/i }))
       expect(authApi.emailTwoFactorDisable).toHaveBeenCalledWith("current-pw")
     })
   })

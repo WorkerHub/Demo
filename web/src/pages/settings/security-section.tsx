@@ -1,13 +1,14 @@
-import { Field } from "@/components/form-field"
 import { QRCodeSVG } from "qrcode.react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
+import { Field } from "@/components/form-field"
 import { PasswordChangeForm } from "@/components/password-change-form"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { useCooldown } from "@/hooks/use-cooldown"
 import { currentLanguage } from "@/i18n"
 import { authApi, meApi } from "@/lib/api"
 import { describeApiError, retryAfterSeconds } from "@/lib/api-errors"
@@ -20,7 +21,6 @@ import {
 } from "@/lib/webauthn"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
-import { useCooldown } from "@/hooks/use-cooldown"
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString(intlLocale(currentLanguage()))
@@ -347,18 +347,12 @@ export function SecuritySection() {
                 onChange={(event) => setEmailPassword(event.target.value)}
               />
             </div>
-            {emailError
-              ? (
-                  <p role="alert" className="text-sm text-destructive">
-                    {emailError}
-                  </p>
-                )
-              : null}
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={emailBusy}
-            >
+            {emailError ? (
+              <p role="alert" className="text-sm text-destructive">
+                {emailError}
+              </p>
+            ) : null}
+            <Button type="submit" variant="outline" disabled={emailBusy}>
               {t("settings.security.emailDisable")}
             </Button>
           </form>
@@ -366,7 +360,6 @@ export function SecuritySection() {
           emailCodeSent ? (
             <form className="space-y-3" onSubmit={confirmEmailEnable}>
               <Field id="email-enable-code" label={t("common.code")}>
-                
                 <Input
                   id="email-enable-code"
                   name="email-enable-code"
@@ -383,14 +376,12 @@ export function SecuritySection() {
                   }
                 />
               </Field>
-              
-              {emailError
-                ? (
-                    <p role="alert" className="text-sm text-destructive">
-                      {emailError}
-                    </p>
-                  )
-                : null}
+
+              {emailError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {emailError}
+                </p>
+              ) : null}
               <Button type="submit" disabled={emailBusy}>
                 {t("settings.security.emailConfirm")}
               </Button>
@@ -410,13 +401,11 @@ export function SecuritySection() {
             </form>
           ) : (
             <div className="space-y-3">
-              {emailError
-                ? (
-                    <p role="alert" className="text-sm text-destructive">
-                      {emailError}
-                    </p>
-                  )
-                : null}
+              {emailError ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {emailError}
+                </p>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
