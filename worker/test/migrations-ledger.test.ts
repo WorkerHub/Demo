@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest"
 import {
   BASELINE_MIGRATION,
+  EMAIL_TWO_FACTOR_MIGRATION,
   MUST_CHANGE_PASSWORD_MIGRATION,
   THEME_REMOVAL_MIGRATION,
   USERNAME_MIGRATION,
@@ -14,27 +15,43 @@ import {
 import { splitStatements } from "../src/lib/migrations-runner"
 import { ledgerName, runSetup } from "../src/lib/setup"
 import {
+  emailCodesTable,
   indexName,
   legacyMigrationsTable,
   migrationsTable,
   sessionsTable,
   settingsTable,
+  user2faTable,
   usersTable
 } from "../src/lib/tables"
 import { activePrefix, initializedContext, tableNames } from "./support/app"
 import type { SqliteD1 } from "./support/sqlite-d1"
 
+/** 迁移全序列：顺序即执行顺序。新增迁移只改这一处。 */
+const MIGRATION_ORDER = [
+  BASELINE_MIGRATION,
+  USERNAME_MIGRATION,
+  MUST_CHANGE_PASSWORD_MIGRATION,
+  THEME_REMOVAL_MIGRATION,
+  USERNAME_REMOVAL_MIGRATION,
+  EMAIL_TWO_FACTOR_MIGRATION
+]
+
+/** 账本回显：按迁移顺序，`applied` 里点名的记为 applied，其余 skipped。 */
+function ledger(...applied: string[]) {
+  return MIGRATION_ORDER.map((name) => ({
+    name,
+    status: applied.includes(name) ? "applied" : "skipped"
+  }))
+}
+
 describe("迁移定义", () => {
   it("基线 schema_v1 后按序追加，语句内部不含分号", () => {
     const prefix = "wiki_"
     const migrations = getMigrations(prefix)
-    expect(migrations.map((migration) => migration.name)).toEqual([
-      BASELINE_MIGRATION,
-      USERNAME_MIGRATION,
-      MUST_CHANGE_PASSWORD_MIGRATION,
-      THEME_REMOVAL_MIGRATION,
-      USERNAME_REMOVAL_MIGRATION
-    ])
+    expect(migrations.map((migration) => migration.name)).toEqual(
+      MIGRATION_ORDER
+    )
     for (const migration of migrations) {
       const statements = splitStatements(migration.sql)
       if (!migration.prepare) expect(statements.length).toBeGreaterThan(0)
@@ -95,13 +112,7 @@ describe("账本命名", () => {
     const again = await runSetup(env)
     expect(again.success).toBe(true)
     if (again.success) {
-      expect(again.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(again.migrations).toEqual(ledger())
     }
   })
 })
@@ -120,13 +131,7 @@ describe("旧账本改名承接", () => {
     const result = await runSetup(env)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(result.migrations).toEqual(ledger())
     }
 
     const tables = tableNames(db)
@@ -136,13 +141,7 @@ describe("旧账本改名承接", () => {
     const rows = db.db
       .prepare(`SELECT name FROM ${migrationsTable(prefix)}`)
       .all() as Array<{ name: string }>
-    expect(rows.map((row) => row.name)).toEqual([
-      BASELINE_MIGRATION,
-      USERNAME_MIGRATION,
-      MUST_CHANGE_PASSWORD_MIGRATION,
-      THEME_REMOVAL_MIGRATION,
-      USERNAME_REMOVAL_MIGRATION
-    ])
+    expect(rows.map((row) => row.name)).toEqual(MIGRATION_ORDER)
   })
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，一个表都不动", async () => {
@@ -252,13 +251,7 @@ describe("schema_v5：删除 users.username", () => {
     const result = await runSetup(env)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" }
-      ])
+      expect(result.migrations).toEqual(ledger(USERNAME_REMOVAL_MIGRATION))
     }
 
     // 列与索引都没了，其余字段原样保留，邮箱唯一约束仍生效。
@@ -298,13 +291,7 @@ describe("schema_v5：删除 users.username", () => {
     const again = await runSetup(env)
     expect(again.success).toBe(true)
     if (again.success) {
-      expect(again.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(again.migrations).toEqual(ledger())
     }
   })
 
@@ -318,13 +305,7 @@ describe("schema_v5：删除 users.username", () => {
     const result = await runSetup(env)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" }
-      ])
+      expect(result.migrations).toEqual(ledger(USERNAME_REMOVAL_MIGRATION))
     }
     expect(columnNames(db, usersTable(prefix))).not.toContain("username")
   })
@@ -365,13 +346,7 @@ describe("schema_v3：users.must_change_password", () => {
     const result = await runSetup(env)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "applied" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(result.migrations).toEqual(ledger(MUST_CHANGE_PASSWORD_MIGRATION))
     }
 
     // 列补上了，存量行读作 0（不强制改密）。
@@ -399,13 +374,7 @@ describe("schema_v3：users.must_change_password", () => {
     const result = await runSetup(env)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "applied" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(result.migrations).toEqual(ledger(MUST_CHANGE_PASSWORD_MIGRATION))
     }
   })
 })
@@ -452,13 +421,7 @@ describe("schema_v4：users.theme", () => {
     const result = await runSetup(env)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "applied" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(result.migrations).toEqual(ledger(THEME_REMOVAL_MIGRATION))
     }
 
     // 列删了，其余字段原样保留。
@@ -479,13 +442,7 @@ describe("schema_v4：users.theme", () => {
     const again = await runSetup(env)
     expect(again.success).toBe(true)
     if (again.success) {
-      expect(again.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(again.migrations).toEqual(ledger())
     }
   })
 
@@ -499,14 +456,141 @@ describe("schema_v4：users.theme", () => {
     const result = await runSetup(env)
     expect(result.success).toBe(true)
     if (result.success) {
-      expect(result.migrations).toEqual([
-        { name: BASELINE_MIGRATION, status: "skipped" },
-        { name: USERNAME_MIGRATION, status: "skipped" },
-        { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
-        { name: THEME_REMOVAL_MIGRATION, status: "applied" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
-      ])
+      expect(result.migrations).toEqual(ledger(THEME_REMOVAL_MIGRATION))
     }
     expect(columnNames(db, usersTable(prefix))).not.toContain("theme")
+  })
+})
+
+describe("schema_v6：邮箱第二因子", () => {
+  /** 表当前的列名（按表定义顺序）。 */
+  function columnNames(db: SqliteD1, table: string): string[] {
+    return db.db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all<{ name: string }>()
+      .map((column) => column.name)
+  }
+
+  /** 表当前的 CREATE 语句（核对 CHECK 约束里的用途集合）。 */
+  function tableDdl(db: SqliteD1, table: string): string {
+    const row = db.db
+      .prepare(
+        `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`
+      )
+      .get(table) as { sql: string } | undefined
+    return row?.sql ?? ""
+  }
+
+  it("全新库：user_2fa 有 email_enabled（默认 0），验证码表接受 twofa_email", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    const codes = emailCodesTable(prefix)
+
+    expect(columnNames(db, user2faTable(prefix))).toContain("email_enabled")
+    expect(tableDdl(db, codes)).toContain("twofa_email")
+
+    // 新用途写得进去；乱写的用途仍被 CHECK 拒绝（约束没在重建时丢掉）。
+    db.db
+      .prepare(
+        `INSERT INTO ${codes}
+          (email, purpose, code_hash, expires_at, attempts, used_at, created_at)
+         VALUES ('a@example.test', 'twofa_email', 'hash', 1, 0, NULL, 0)`
+      )
+      .run()
+    expect(() =>
+      db.db
+        .prepare(
+          `INSERT INTO ${codes}
+            (email, purpose, code_hash, expires_at, attempts, used_at, created_at)
+           VALUES ('a@example.test', 'bogus', 'hash', 1, 0, NULL, 0)`
+        )
+        .run()
+    ).toThrow(/CHECK/i)
+  })
+
+  it("存量库升级：补列 + 重建验证码表，旧码整行保留，二次 setup 幂等", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    const codes = emailCodesTable(prefix)
+    const retired = `${prefix}email_verification_codes_v5`
+
+    // 还原成「只跑过 schema_v5」的存量库：删 v6 的列、索引与账本记录，把验证码表
+    // 改回旧 CHECK（SQLite 只能重建），再写一行旧用途的码。
+    db.db.exec(`ALTER TABLE ${user2faTable(prefix)} DROP COLUMN email_enabled`)
+    db.db.exec(
+      `DROP INDEX IF EXISTS ${indexName(prefix, "email_codes_lookup")}`
+    )
+    db.db.exec(
+      `DROP INDEX IF EXISTS ${indexName(prefix, "email_codes_expires")}`
+    )
+    db.db.exec(`ALTER TABLE ${codes} RENAME TO ${retired}`)
+    db.db.exec(`CREATE TABLE ${codes} (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      email      TEXT NOT NULL,
+      purpose    TEXT NOT NULL CHECK (purpose IN ('register_verify', 'password_reset')),
+      code_hash  TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      attempts   INTEGER NOT NULL DEFAULT 0,
+      used_at    INTEGER,
+      created_at INTEGER NOT NULL
+    )`)
+    db.db
+      .prepare(
+        `INSERT INTO ${codes}
+          (email, purpose, code_hash, expires_at, attempts, used_at, created_at)
+         VALUES ('legacy@example.test', 'password_reset', 'hash-legacy', 1, 2, 3, 4)`
+      )
+      .run()
+    db.db.exec(`DROP TABLE ${retired}`)
+    db.db
+      .prepare(`DELETE FROM ${migrationsTable(prefix)} WHERE name = ?`)
+      .run(EMAIL_TWO_FACTOR_MIGRATION)
+    expect(columnNames(db, user2faTable(prefix))).not.toContain("email_enabled")
+    expect(tableDdl(db, codes)).not.toContain("twofa_email")
+
+    const result = await runSetup(env)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.migrations).toEqual(ledger(EMAIL_TWO_FACTOR_MIGRATION))
+    }
+
+    expect(columnNames(db, user2faTable(prefix))).toContain("email_enabled")
+    expect(tableDdl(db, codes)).toContain("twofa_email")
+    // 旧码整行保留：id、尝试次数、核销时间都不动。
+    expect(
+      db.db
+        .prepare(
+          `SELECT id, email, purpose, code_hash, expires_at, attempts, used_at, created_at
+             FROM ${codes}`
+        )
+        .all()
+    ).toEqual([
+      {
+        id: 1,
+        email: "legacy@example.test",
+        purpose: "password_reset",
+        code_hash: "hash-legacy",
+        expires_at: 1,
+        attempts: 2,
+        used_at: 3,
+        created_at: 4
+      }
+    ])
+    // 两张索引随表重建补回。
+    const indexes = (
+      db.db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE ?`
+        )
+        .all(`idx_${prefix}email%`) as Array<{ name: string }>
+    ).map((row) => row.name)
+    expect(indexes.sort()).toEqual([
+      indexName(prefix, "email_codes_expires"),
+      indexName(prefix, "email_codes_lookup")
+    ])
+
+    const again = await runSetup(env)
+    expect(again.success).toBe(true)
+    if (again.success) expect(again.migrations).toEqual(ledger())
   })
 })

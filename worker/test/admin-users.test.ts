@@ -186,7 +186,8 @@ describe("系统管理面", () => {
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
       { name: "schema_v4", status: "skipped" },
-      { name: "schema_v5", status: "skipped" }
+      { name: "schema_v5", status: "skipped" },
+      { name: "schema_v6", status: "skipped" }
     ])
   })
 })

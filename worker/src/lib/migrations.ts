@@ -4,7 +4,7 @@
  * - 全新库：`schema_v1` 的 sql 按 schema.ts 的定版 DDL 一次建出全部表/索引，
  *   随后的 `schema_v2` 起在其上叠加。
  * - 重复执行：全部 `CREATE … IF NOT EXISTS`，幂等空操作（账本已记账时直接 skipped）。
- * - 今后结构变化继续从 `schema_v3` 往后追加；`schema_v1` 不得改名、改内容或调序。
+ * - 今后结构变化继续往后追加（现为 `schema_v6`）；`schema_v1` 不得改名、改内容或调序。
  * - 追加迁移的加列动作放 `prepare`（PRAGMA 判断后再 ALTER），保证「执行到一半失败」
  *   时重跑不会卡在 duplicate column；`sql` 只放可重复执行的语句。
  *
@@ -12,7 +12,14 @@
  * 表名/索引名一律经 tables.ts（基线迁移经 schema.ts 的 `{prefix}` 占位）拼装，不写死前缀。
  */
 import { SCHEMA_INDEXES, SCHEMA_TABLES, baselineStatements } from "./schema"
-import { indexName, settingsTable, tableName, usersTable } from "./tables"
+import {
+  emailCodesTable,
+  indexName,
+  settingsTable,
+  tableName,
+  user2faTable,
+  usersTable
+} from "./tables"
 
 /** 迁移执行时能拿到的东西：库与生效前缀。 */
 export interface MigrationContext {
@@ -41,6 +48,9 @@ export const THEME_REMOVAL_MIGRATION = "schema_v4"
 
 /** 用户名退役迁移名：删 `users.username` 列、部分唯一索引与资料锁设置行。 */
 export const USERNAME_REMOVAL_MIGRATION = "schema_v5"
+
+/** 邮箱第二因子迁移名：`user_2fa` 加 `email_enabled`，验证码表放开 `twofa_email` 用途。 */
+export const EMAIL_TWO_FACTOR_MIGRATION = "schema_v6"
 
 /**
  * `users.username`（可自定义的用户名，`''` = 未设置）。
@@ -160,6 +170,81 @@ function usernameRemovalMigration(prefix: string): Migration {
   }
 }
 
+/**
+ * 邮箱第二因子：启用状态进 `user_2fa`，验证码复用既有的
+ * `email_verification_codes`（不另建表、不另造服务）。
+ *
+ * - 加列走 `prepare`：先看 PRAGMA 再 ALTER，列已在时跳过（幂等，重跑不报 duplicate column）。
+ * - `purpose` 是**列上的 CHECK 约束**，SQLite 不支持改约束，只能按官方 12 步重建表。
+ *   整段重建放进一次 `batch`（D1 的 batch 是事务），不会留下「建了影子表却没换名」的
+ *   中间态；重跑时若表 DDL 里已有 `twofa_email` 就整体跳过。
+ * - 重建搬行时保留原 `id`（尝试次数与单次使用都挂在行上）；`sqlite_sequence` 随 RENAME
+ *   一起搬，新码不会撞主键；两张索引随表重建补回。
+ * - `sql` 留空（执行器对空 sql 幂等跳过）。
+ * - 回滚：旧代码不看 `email_enabled` 列，留着无副作用；旧 CHECK 会拒绝 `twofa_email`
+ *   行，回滚前先 `DELETE … WHERE purpose = 'twofa_email'`，再按同一步骤把 CHECK 改回去。
+ */
+function emailTwoFactorMigration(prefix: string): Migration {
+  const userTable = user2faTable(prefix)
+  const codesTable = emailCodesTable(prefix)
+  const staging = tableName(prefix, "email_verification_codes_v6")
+  const lookupIndex = indexName(prefix, "email_codes_lookup")
+  const expiresIndex = indexName(prefix, "email_codes_expires")
+  return {
+    name: EMAIL_TWO_FACTOR_MIGRATION,
+    sql: "",
+    prepare: async (ctx) => {
+      const columns = await ctx.db
+        .prepare(`PRAGMA table_info(${userTable})`)
+        .all<{ name: string }>()
+      if (!columns.results.some((column) => column.name === "email_enabled")) {
+        await ctx.db
+          .prepare(
+            `ALTER TABLE ${userTable} ADD COLUMN email_enabled INTEGER NOT NULL DEFAULT 0`
+          )
+          .run()
+      }
+
+      const current = await ctx.db
+        .prepare(
+          `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`
+        )
+        .bind(codesTable)
+        .first<{ sql: string | null }>()
+      if (!current?.sql || current.sql.includes("twofa_email")) return
+
+      await ctx.db.batch([
+        ctx.db.prepare(`DROP TABLE IF EXISTS ${staging}`),
+        ctx.db.prepare(`CREATE TABLE ${staging} (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT NOT NULL,
+  purpose    TEXT NOT NULL CHECK (purpose IN ('register_verify', 'password_reset', 'twofa_email')),
+  code_hash  TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  used_at    INTEGER,
+  created_at INTEGER NOT NULL
+)`),
+        ctx.db.prepare(
+          `INSERT INTO ${staging}
+            (id, email, purpose, code_hash, expires_at, attempts, used_at, created_at)
+           SELECT id, email, purpose, code_hash, expires_at, attempts, used_at, created_at
+             FROM ${codesTable}`
+        ),
+        ctx.db.prepare(`DROP TABLE ${codesTable}`),
+        ctx.db.prepare(`ALTER TABLE ${staging} RENAME TO ${codesTable}`),
+        ctx.db.prepare(
+          `CREATE INDEX IF NOT EXISTS ${lookupIndex}
+            ON ${codesTable}(email, purpose, created_at)`
+        ),
+        ctx.db.prepare(
+          `CREATE INDEX IF NOT EXISTS ${expiresIndex} ON ${codesTable}(expires_at)`
+        )
+      ])
+    }
+  }
+}
+
 export function getMigrations(prefix: string): Migration[] {
   const statements = baselineStatements(prefix)
   const sql = statements.join(";\n\n")
@@ -185,6 +270,7 @@ export function getMigrations(prefix: string): Migration[] {
     usernameMigration(prefix),
     mustChangePasswordMigration(prefix),
     themeRemovalMigration(prefix),
-    usernameRemovalMigration(prefix)
+    usernameRemovalMigration(prefix),
+    emailTwoFactorMigration(prefix)
   ]
 }

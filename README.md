@@ -5,7 +5,7 @@
 Temp — WorkerHub 模板骨架项目：迁移、setup 与鉴权的最小实现。多用户档、开放注册；不含示例业务表与业务逻辑，业务功能按需填充。
 
 - **前端**：公开侧只有首页、登录、注册、找回密码与初始化页；登录后侧栏只有「工作台」，个人资料 / 系统管理 / 设置 / 关于收在顶栏头像菜单里（头像是昵称首字圆，昵称为空时取邮箱）。
-- **后端**：只做项目身份、表前缀、迁移账本、setup、鉴权（密码 + TOTP + Passkey）、注册审核、邮件验证码与系统管理接口。
+- **后端**：只做项目身份、表前缀、迁移账本、setup、鉴权（密码 + TOTP / Passkey / 邮箱验证码三种第二因子）、注册审核、邮件验证码与系统管理接口。
 
 ## 界面预览
 
@@ -45,10 +45,10 @@ Temp — WorkerHub 模板骨架项目：迁移、setup 与鉴权的最小实现�
 
 - **项目身份单点**：`worker/src/config/project.ts` 集中放展示名、仓库 / Worker 名、一句话说明与仓库地址；默认表前缀单独放在 `worker/src/config/defaults.json`，worker 运行时与部署脚本共读这一份，改它一处两端同时生效。`pnpm check:identity` 扫描全仓，白名单外出现项目名 / slug 即失败。
 - **表前缀三态**：未配置 → 默认前缀；配置自定义值 → 规范化后使用；显式空值 → 无前缀。生效前缀必须在初始化前定死，中途换前缀会被 setup 的前缀冲突守卫拦下（409）。
-- **账本式迁移**：基线 `schema_v1` 之后按序追加（现为 `schema_v5`，含 `users.theme` 与 `users.username` 的删列），幂等、只进不退；账本表为 `_<生效前缀>schema_migrations`。`worker/src/db/schema.sql` 与 `worker/src/lib/schema.ts` 的**基线**定义逐字同步，由测试锁住；基线之后的结构变化只写 `worker/src/lib/migrations.ts`，不回写 `schema.sql`。
-- **部署与升级的顺序**：`deploy.yml` 只发 Worker、不跑迁移；破坏性迁移必须等新版本部署完成（页脚 / 系统管理可见版本号）后再点「检查并升级数据库」——Cloudflare 部署传播期间，不同边缘可能仍跑旧版本，而旧版本会 `SELECT theme` / `SELECT username`。回滚 Worker 到删列前的版本前，先补回列（theme：`ALTER TABLE <生效前缀>users ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'`；username：`ADD COLUMN username TEXT NOT NULL DEFAULT ''` 并重建部分唯一索引），否则旧代码会因缺列报错；被删数据只能靠 D1 Time Travel 找回。
+- **账本式迁移**：基线 `schema_v1` 之后按序追加（现为 `schema_v6`：`users.theme` 与 `users.username` 的删列、邮箱第二因子的 `user_2fa.email_enabled` 列与验证码表用途放宽），幂等、只进不退；账本表为 `_<生效前缀>schema_migrations`。`worker/src/db/schema.sql` 与 `worker/src/lib/schema.ts` 的**基线**定义逐字同步，由测试锁住；基线之后的结构变化只写 `worker/src/lib/migrations.ts`，不回写 `schema.sql`。
+- **部署与升级的顺序**：`deploy.yml` 只发 Worker、不跑迁移；破坏性迁移必须等新版本部署完成（页脚 / 系统管理可见版本号）后再点「检查并升级数据库」——Cloudflare 部署传播期间，不同边缘可能仍跑旧版本，而旧版本会 `SELECT theme` / `SELECT username`。回滚 Worker 到删列前的版本前，先补回列（theme：`ALTER TABLE <生效前缀>users ADD COLUMN theme TEXT NOT NULL DEFAULT 'system'`；username：`ADD COLUMN username TEXT NOT NULL DEFAULT ''` 并重建部分唯一索引），否则旧代码会因缺列报错；被删数据只能靠 D1 Time Travel 找回。`schema_v6` 的方向相反：它只加列、放宽验证码用途，但**新代码会 SELECT 新列**，所以升级要点在新版本生效之前点「检查并升级数据库」（与 v3 同一类加列迁移）；真要回滚到 v6 之前，先 `DELETE … WHERE purpose = 'twofa_email'` 再把那张表的 CHECK 改回去。
 - **setup 双入口**：`/setup` 页（凭部署密钥）与系统管理「检查并升级数据库」（凭管理员会话）调用同一个迁移 runner；`POST /api/setup` 是纯升级端点，只跑迁移、不建用户，密钥只走 `X-Setup-Secret` 请求头（不进 URL），按 IP 限流。UI 不提供删表 / 清库入口。
-- **鉴权**：邮箱密码 + TOTP（密码步与验证码步分开呈现）+ Passkey（WebAuthn）；会话 Cookie 为 `HttpOnly` + `Secure` + `SameSite=Strict`，库里只存令牌哈希；密码连续失败按账号锁定，另有按 IP 的限流。
+- **鉴权**：邮箱密码 + 第二因子三选一、可同时启用（TOTP、Passkey（WebAuthn）、邮箱验证码——复用注册 / 找回密码那套验证码服务）；密码步与验证码步分开呈现；会话 Cookie 为 `HttpOnly` + `Secure` + `SameSite=Strict`，库里只存令牌哈希；密码连续失败按账号锁定，另有按 IP 的限流。
 - **注册与审核**：默认开放注册、需要管理员批准；首个注册用户自动成为管理员并直接批准。可另开「注册需验证邮箱」。
 - **前端**：亮 / 暗 / 自动三档主题（首屏内联脚本防白闪）；中英双语（i18next，后端错误按稳定错误码翻译）；版本号与构建日期 / 时间由 `git describe` 在构建时生成（`build-info.json`，不入库）。
 - **系统管理**：邮件配置与测试邮件、注册 / 审核开关、用户列表（全量用户，待批准行内批准 / 拒绝）、setup 页开关、数据库维护（回显生效前缀与迁移记录）。

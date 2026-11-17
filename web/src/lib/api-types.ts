@@ -42,7 +42,8 @@ export interface SetupOwnerInput {
   language: string
 }
 
-export type TwoFactorMethod = "totp" | "passkey"
+/** 第二因子三选一：TOTP / Passkey / 邮箱验证码。 */
+export type TwoFactorMethod = "totp" | "passkey" | "email"
 
 export type UserRole = "admin" | "user"
 
@@ -58,6 +59,8 @@ export interface Me {
   language: string
   timezone: string
   totpEnabled: boolean
+  /** 邮箱验证码第二因子是否已启用（与 TOTP / Passkey 并列，可同时启用）。 */
+  emailTwoFactorEnabled: boolean
   passkeyCount: number
   /** 个人资料修改锁（后端强制拦截的开关状态，前端据此灰掉编辑按钮）。 */
   profileLocks: {
@@ -68,6 +71,21 @@ export interface Me {
 export type LoginResult =
   | { success: true; user: Me }
   | { requires2fa: true; tempToken: string; methods: TwoFactorMethod[] }
+
+/** POST /api/auth/2fa/email/send：登录第二步发码（未登录，凭 tempToken）。 */
+export interface TwoFactorEmailSendInput {
+  tempToken: string
+}
+
+/** POST /api/auth/2fa/email/enable：向本人邮箱发出的码验过一次才生效。 */
+export interface TwoFactorEmailEnableInput {
+  code: string
+}
+
+/** POST /api/auth/2fa/email/disable：停用需复核当前密码（与 TOTP 停用同口径）。 */
+export interface TwoFactorEmailDisableInput {
+  password: string
+}
 
 export interface RegisterResult {
   requiresApproval: boolean

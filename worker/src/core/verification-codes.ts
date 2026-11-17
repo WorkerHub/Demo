@@ -1,11 +1,14 @@
 /**
- * 邮件验证码的唯一服务（规格 §5.6 第 1 条）：注册邮箱验证与找回密码共用同一份
- * 规矩与同一张表 `email_verification_codes`，不各写一套。
+ * 邮件验证码的唯一服务（规格 §5.6 第 1 条）：注册邮箱验证、找回密码与邮箱第二
+ * 因子共用同一份规矩与同一张表 `email_verification_codes`，不各写一套。
  *
  * 6 位数字；库里只存 HMAC-SHA256（密钥 `SIGNING_SECRET`，见 core/auth.ts），
  * 不是裸哈希——6 位码熵低，裸哈希库被读即可枚举。有效期 10 分钟、单码最多 5 次
  * 尝试、单次使用；发放新码时同邮箱同用途的旧码一律置失效。60 秒重发冷却与按 IP
  * 限流都走计数表，与登录限流同一套机制。
+ *
+ * `purpose` 是码的隔离维度：注册验证、找回密码、邮箱第二因子各走一条通道，
+ * 发其中一种码不会作废另一种。
  */
 import { hmacSignatureHex, safeEqual } from "./auth"
 import { enforceRateLimit, type RateLimitVerdict } from "./rate-limit"
@@ -13,7 +16,7 @@ import { getTablePrefix } from "../lib/table-prefix"
 import { emailCodesTable } from "../lib/tables"
 import type { Env } from "../types"
 
-export type CodePurpose = "register_verify" | "password_reset"
+export type CodePurpose = "register_verify" | "password_reset" | "twofa_email"
 
 export const CODE_TTL_SECONDS = 10 * 60
 export const CODE_MAX_ATTEMPTS = 5

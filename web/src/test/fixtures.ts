@@ -34,6 +34,7 @@ export function me(overrides: Partial<Me> = {}): Me {
     language: "zh",
     timezone: "Asia/Shanghai",
     totpEnabled: false,
+    emailTwoFactorEnabled: false,
     passkeyCount: 0,
     profileLocks: { displayNameLocked: false },
     ...overrides

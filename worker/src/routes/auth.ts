@@ -34,7 +34,8 @@ import { verifyTotpCode } from "../core/totp"
 import {
   checkResendCooldown,
   issueVerificationCode,
-  verifyVerificationCode
+  verifyVerificationCode,
+  type CodePurpose
 } from "../core/verification-codes"
 import {
   clearChallengeCookie,
@@ -95,6 +96,12 @@ const EMAIL_RESEND_LIMIT = {
 }
 const TWO_FA_LIMIT = { action: "2fa_verify", windowSeconds: 300, max: 10 }
 const TWO_FA_FAIL_LIMIT = { action: "2fa_fail", windowSeconds: 300, max: 5 }
+/** 登录第二步「发邮箱验证码」：按 IP 限流（冷却另算，见 CODE_COOLDOWN）。 */
+const EMAIL_TWO_FA_SEND_LIMIT = {
+  action: "2fa_email_send",
+  windowSeconds: 300,
+  max: 5
+}
 const PASSKEY_LIMIT = {
   action: "passkey_challenge",
   windowSeconds: 300,
@@ -150,15 +157,20 @@ async function requireInitialized(
   )
 }
 
-/** 发验证码邮件：失败只记日志，不回滚注册、也不向调用方泄露发送结果。 */
+/**
+ * 发验证码邮件：返回是否真的发出去了。
+ *
+ * 注册/找回密码不关心结果（失败只记日志，不回滚主流程、也不向调用方泄露发送结果）；
+ * 邮箱第二因子必须据此回 502 `EMAIL_SEND_FAILED`——它拿不到码就进不去，不能装作发成功。
+ */
 async function sendVerificationCode(
   env: Env,
   input: {
     email: string
-    purpose: "register_verify" | "password_reset"
+    purpose: CodePurpose
     language: "zh" | "en"
   }
-): Promise<void> {
+): Promise<boolean> {
   const { code } = await issueVerificationCode(env, {
     email: input.email,
     purpose: input.purpose
@@ -176,6 +188,7 @@ async function sendVerificationCode(
       result.error ?? "unknown error"
     )
   }
+  return result.success
 }
 
 // ─── 注册与审核 ───────────────────────────────────────────────────────────────
@@ -387,6 +400,8 @@ authRoutes.post("/login", async (c) => {
   if ((await listPasskeys(c.env.DB, prefix, user.id)).length > 0) {
     methods.push("passkey")
   }
+  // 邮箱验证码也走签名临时令牌（tempToken）：与 TOTP / Passkey 并列的第二因子。
+  if (twoFactor?.email_enabled) methods.push("email")
 
   if (methods.length > 0) {
     const secret = secretOf(c.env)
@@ -516,6 +531,58 @@ async function finishSignIn(
   return c.json({ success: true, user: await buildUserView(c.env, user) })
 }
 
+/** 第二因子校验失败：按用户累计失败次数，超限 429，否则统一 400（不区分原因，防枚举）。 */
+async function failSecondFactor(c: Ctx, userId: number): Promise<Response> {
+  const prefix = getTablePrefix(c.env)
+  const fails = await consumeCounter(
+    c.env.DB,
+    prefix,
+    { ...TWO_FA_FAIL_LIMIT, account: String(userId) },
+    nowSeconds()
+  )
+  if (fails.count > TWO_FA_FAIL_LIMIT.max) {
+    return rateLimited(c, TWO_FA_FAIL_LIMIT.windowSeconds)
+  }
+  return apiError(c, 400, "INVALID_CODE", "Invalid verification code")
+}
+
+async function clearSecondFactorFailures(
+  c: Ctx,
+  userId: number
+): Promise<void> {
+  await clearCounter(c.env.DB, getTablePrefix(c.env), {
+    ...TWO_FA_FAIL_LIMIT,
+    account: String(userId)
+  })
+}
+
+/**
+ * 登录第二步：邮箱验证码。码来自既有验证码服务（`purpose = twofa_email`：6 位、
+ * 哈希存库、10 分钟、5 次尝试、单次使用），只对已启用邮箱因子的账号生效。
+ */
+async function verifyEmailSecondFactor(
+  c: Ctx,
+  stepUp: { userId: number; jti: string },
+  code: string
+): Promise<Response> {
+  const prefix = getTablePrefix(c.env)
+  const twoFactor = await getTwoFactor(c.env.DB, prefix, stepUp.userId)
+  const user = await findUserById(c.env.DB, prefix, stepUp.userId)
+  if (!twoFactor?.email_enabled || !user) {
+    return failSecondFactor(c, stepUp.userId)
+  }
+
+  const verdict = await verifyVerificationCode(c.env, {
+    email: user.email,
+    purpose: "twofa_email",
+    code
+  })
+  if (!verdict.ok) return failSecondFactor(c, stepUp.userId)
+
+  await clearSecondFactorFailures(c, stepUp.userId)
+  return finishSignIn(c, stepUp.userId, stepUp.jti)
+}
+
 authRoutes.post("/2fa/verify", async (c) => {
   const body = await readJsonBody<{
     tempToken?: string
@@ -525,30 +592,22 @@ authRoutes.post("/2fa/verify", async (c) => {
   const stepUp = await readStepUp(c, body?.tempToken, TWO_FA_LIMIT)
   if (!stepUp.ok) return stepUp.response
 
+  const prefix = getTablePrefix(c.env)
+  const code = typeof body?.code === "string" ? body.code.trim() : ""
+
+  if (body?.method === "email") {
+    return verifyEmailSecondFactor(c, stepUp, code)
+  }
   if (body?.method !== "totp") {
     return apiError(c, 400, "INVALID_CODE", "Unsupported verification method")
   }
 
-  const prefix = getTablePrefix(c.env)
-  const code = typeof body.code === "string" ? body.code.trim() : ""
   const twoFactor = await getTwoFactor(c.env.DB, prefix, stepUp.userId)
   const step =
     twoFactor?.totp_enabled && twoFactor.totp_secret
       ? verifyTotpCode(twoFactor.totp_secret, code)
       : null
-
-  if (step === null) {
-    const fails = await consumeCounter(
-      c.env.DB,
-      prefix,
-      { ...TWO_FA_FAIL_LIMIT, account: String(stepUp.userId) },
-      nowSeconds()
-    )
-    if (fails.count > TWO_FA_FAIL_LIMIT.max) {
-      return rateLimited(c, TWO_FA_FAIL_LIMIT.windowSeconds)
-    }
-    return apiError(c, 400, "INVALID_CODE", "Invalid verification code")
-  }
+  if (step === null) return failSecondFactor(c, stepUp.userId)
 
   // 同一步长窗口内的同码重放拒绝（对应 eNotify 的 KV totp_used 判定）。
   const replay = await consumeCounter(
@@ -561,11 +620,77 @@ authRoutes.post("/2fa/verify", async (c) => {
     return apiError(c, 400, "INVALID_CODE", "Invalid verification code")
   }
 
-  await clearCounter(c.env.DB, prefix, {
-    ...TWO_FA_FAIL_LIMIT,
-    account: String(stepUp.userId)
-  })
+  await clearSecondFactorFailures(c, stepUp.userId)
   return finishSignIn(c, stepUp.userId, stepUp.jti)
+})
+
+// ─── 邮箱验证码（第二因子） ─────────────────────────────────────────────────────
+
+/**
+ * 登录第二步发码：凭 tempToken 给本人邮箱发一枚 `twofa_email` 码，随后照常
+ * `POST /2fa/verify {method:"email", code}` 换会话。未登录可达——tempToken 就是凭据，
+ * 所以它登记在 `index.ts` 的公开表里、不走会话中间件。
+ *
+ * 错误码（定版）：400 `EMAIL_NOT_ENABLED`、401 `STEP_UP_REQUIRED`、409
+ * `EMAIL_NOT_CONFIGURED`、429 `RATE_LIMITED` / `CODE_COOLDOWN`（带 `retryAfter`）、
+ * 502 `EMAIL_SEND_FAILED`。
+ */
+authRoutes.post("/2fa/email/send", async (c) => {
+  const body = await readJsonBody<{ tempToken?: string }>(c)
+  const stepUp = await readStepUp(c, body?.tempToken, EMAIL_TWO_FA_SEND_LIMIT)
+  if (!stepUp.ok) return stepUp.response
+
+  const prefix = getTablePrefix(c.env)
+  const twoFactor = await getTwoFactor(c.env.DB, prefix, stepUp.userId)
+  if (!twoFactor?.email_enabled) {
+    return apiError(
+      c,
+      400,
+      "EMAIL_NOT_ENABLED",
+      "The email second factor is not enabled"
+    )
+  }
+  const user = await findUserById(c.env.DB, prefix, stepUp.userId)
+  if (!user) {
+    return apiError(c, 401, "STEP_UP_REQUIRED", "Sign-in session is invalid")
+  }
+  if (!(await isEmailConfigured(c.env))) {
+    return apiError(
+      c,
+      409,
+      "EMAIL_NOT_CONFIGURED",
+      "Email delivery is not configured on this site"
+    )
+  }
+
+  const cooldown = await checkResendCooldown(c.env, {
+    email: user.email,
+    purpose: "twofa_email"
+  })
+  if (!cooldown.allowed) {
+    return apiError(
+      c,
+      429,
+      "CODE_COOLDOWN",
+      "Please wait before requesting another code",
+      { retryAfter: cooldown.retryAfter }
+    )
+  }
+
+  const sent = await sendVerificationCode(c.env, {
+    email: user.email,
+    purpose: "twofa_email",
+    language: normalizeLanguage(user.language) ?? "zh"
+  })
+  if (!sent) {
+    return apiError(
+      c,
+      502,
+      "EMAIL_SEND_FAILED",
+      "Failed to send the verification email"
+    )
+  }
+  return c.json({ success: true })
 })
 
 // ─── 通行密钥（第二因子） ──────────────────────────────────────────────────────
