@@ -217,6 +217,29 @@ export const authApi = {
     request<{ success: true }>("/auth/2fa/passkey/register/verify", {
       method: "POST",
       body: { credential }
+    }),
+
+  emailTwoFactorSend: (tempToken: string) =>
+    request<{ success: true }>("/auth/2fa/email/send", {
+      method: "POST",
+      body: { tempToken }
+    }),
+
+  emailTwoFactorEnableSend: () =>
+    request<{ success: true }>("/auth/2fa/email/enable/send", {
+      method: "POST"
+    }),
+
+  emailTwoFactorEnable: (code: string) =>
+    request<{ success: true }>("/auth/2fa/email/enable", {
+      method: "POST",
+      body: { code }
+    }),
+
+  emailTwoFactorDisable: (password: string) =>
+    request<{ success: true }>("/auth/2fa/email/disable", {
+      method: "POST",
+      body: { password }
     })
 }
 
