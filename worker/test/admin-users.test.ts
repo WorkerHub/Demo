@@ -181,14 +181,7 @@ describe("系统管理面", () => {
     }
     expect(body.success).toBe(true)
     expect(body.tablePrefix).toBe(activePrefix(env))
-    expect(body.migrations).toEqual([
-      { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "skipped" },
-      { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" },
-      { name: "schema_v5", status: "skipped" },
-      { name: "schema_v6", status: "skipped" }
-    ])
+    expect(body.migrations).toEqual([{ name: "schema_v1", status: "skipped" }])
   })
 })
 
