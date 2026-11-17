@@ -42,7 +42,7 @@ export interface SetupOwnerInput {
   language: string
 }
 
-export type TwoFactorMethod = "totp" | "passkey"
+export type TwoFactorMethod = "totp" | "passkey" | "email"
 
 export type UserRole = "admin" | "user"
 
@@ -58,6 +58,7 @@ export interface Me {
   language: string
   timezone: string
   totpEnabled: boolean
+  emailTwoFactorEnabled: boolean
   passkeyCount: number
   /** 个人资料修改锁（后端强制拦截的开关状态，前端据此灰掉编辑按钮）。 */
   profileLocks: {

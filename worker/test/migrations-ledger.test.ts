@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest"
 import {
   BASELINE_MIGRATION,
+  EMAIL_TWO_FACTOR_MIGRATION,
   MUST_CHANGE_PASSWORD_MIGRATION,
   THEME_REMOVAL_MIGRATION,
   USERNAME_MIGRATION,
@@ -33,7 +34,8 @@ describe("迁移定义", () => {
       USERNAME_MIGRATION,
       MUST_CHANGE_PASSWORD_MIGRATION,
       THEME_REMOVAL_MIGRATION,
-      USERNAME_REMOVAL_MIGRATION
+      USERNAME_REMOVAL_MIGRATION,
+      EMAIL_TWO_FACTOR_MIGRATION
     ])
     for (const migration of migrations) {
       const statements = splitStatements(migration.sql)
@@ -100,7 +102,8 @@ describe("账本命名", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -125,7 +128,8 @@ describe("旧账本改名承接", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -141,7 +145,8 @@ describe("旧账本改名承接", () => {
       USERNAME_MIGRATION,
       MUST_CHANGE_PASSWORD_MIGRATION,
       THEME_REMOVAL_MIGRATION,
-      USERNAME_REMOVAL_MIGRATION
+      USERNAME_REMOVAL_MIGRATION,
+      EMAIL_TWO_FACTOR_MIGRATION
     ])
   })
 
@@ -257,7 +262,8 @@ describe("schema_v5：删除 users.username", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -303,7 +309,8 @@ describe("schema_v5：删除 users.username", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -323,7 +330,8 @@ describe("schema_v5：删除 users.username", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
     expect(columnNames(db, usersTable(prefix))).not.toContain("username")
@@ -370,7 +378,8 @@ describe("schema_v3：users.must_change_password", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "applied" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -404,7 +413,8 @@ describe("schema_v3：users.must_change_password", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "applied" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -457,7 +467,8 @@ describe("schema_v4：users.theme", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "applied" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -484,7 +495,8 @@ describe("schema_v4：users.theme", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -504,7 +516,8 @@ describe("schema_v4：users.theme", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "applied" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_TWO_FACTOR_MIGRATION, status: "skipped" }
       ])
     }
     expect(columnNames(db, usersTable(prefix))).not.toContain("theme")
