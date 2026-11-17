@@ -28,7 +28,9 @@ function sidebarRoot(): HTMLElement {
 }
 
 function sidebarWidth(): string {
-  const el = document.querySelector<HTMLElement>("[data-slot='sidebar-wrapper']")
+  const el = document.querySelector<HTMLElement>(
+    "[data-slot='sidebar-wrapper']"
+  )
   if (!el) throw new Error("sidebar wrapper not found")
   return el.style.getPropertyValue("--sidebar-width")
 }
@@ -53,7 +55,9 @@ describe("应用壳侧栏", () => {
     )
     const nav = screen.getByRole("navigation")
     expect(
-      within(nav).getAllByRole("link").map((link) => link.textContent)
+      within(nav)
+        .getAllByRole("link")
+        .map((link) => link.textContent)
     ).toEqual(["工作台"])
   })
 
@@ -121,4 +125,3 @@ describe("应用壳侧栏", () => {
     expect(sidebarWidth()).toBe("360px")
   })
 })
-
