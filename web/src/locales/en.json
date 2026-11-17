@@ -293,6 +293,20 @@
       "emailUnverified": "Email unverified",
       "self": "You",
       "actions": "Actions",
+      "rowMenu": "Actions for {{email}}",
+      "resetPassword": "Reset password",
+      "resetDoneTitle": "Password reset",
+      "temporaryPassword": "Temporary password",
+      "disable": "Disable",
+      "enable": "Enable",
+      "disabledToast": "User disabled",
+      "enabledToast": "User enabled",
+      "changeRole": "Change role",
+      "roleChanged": "Role changed",
+      "delete": "Delete",
+      "deleteTitle": "Delete user?",
+      "deleteDescription": "Permanently delete {{email}} ({{displayName}}).",
+      "deleted": "User deleted",
       "create": {
         "title": "Create user",
         "email": "Email",
@@ -307,6 +321,12 @@
         "copy": "Copy",
         "copied": "Copied",
         "copyFailed": "Copy failed — select the password and copy it manually"
+      },
+      "errors": {
+        "USER_NOT_FOUND": "User not found",
+        "SELF_ACTION_FORBIDDEN": "You cannot do this to yourself",
+        "LAST_ADMIN": "At least one admin must remain",
+        "INVALID_ROLE": "Invalid role"
       }
     },
     "maintenance": {

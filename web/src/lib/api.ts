@@ -24,7 +24,8 @@ import type {
   SetupOwnerInput,
   SetupResult,
   SetupState,
-  TwoFactorMethod
+  TwoFactorMethod,
+  UserRole
 } from "@/lib/api-types"
 
 const BASE = "/api"
@@ -246,6 +247,13 @@ export interface AdminSetupResult extends SetupResult {
   migrations: MigrationResult[]
 }
 
+/** POST /api/admin/users/:id/reset-password 的响应：临时密码只在此响应里出现一次。 */
+export interface AdminResetPasswordResult {
+  success: true
+  email: string
+  temporaryPassword: string
+}
+
 export const adminApi = {
   settings: () => request<AdminSettings>("/admin/settings"),
 
@@ -273,6 +281,28 @@ export const adminApi = {
 
   rejectUser: (id: number) =>
     request<{ success: true }>(`/admin/users/${id}/reject`, { method: "POST" }),
+
+  resetUserPassword: (id: number) =>
+    request<AdminResetPasswordResult>(`/admin/users/${id}/reset-password`, {
+      method: "POST"
+    }),
+
+  disableUser: (id: number) =>
+    request<{ success: true }>(`/admin/users/${id}/disable`, {
+      method: "POST"
+    }),
+
+  enableUser: (id: number) =>
+    request<{ success: true }>(`/admin/users/${id}/enable`, { method: "POST" }),
+
+  changeUserRole: (id: number, role: UserRole) =>
+    request<{ success: true }>(`/admin/users/${id}/role`, {
+      method: "POST",
+      body: { role }
+    }),
+
+  deleteUser: (id: number) =>
+    request<{ success: true }>(`/admin/users/${id}`, { method: "DELETE" }),
 
   runSetup: () => request<AdminSetupResult>("/admin/setup", { method: "POST" })
 }

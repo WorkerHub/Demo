@@ -293,6 +293,20 @@
       "emailUnverified": "邮箱未验证",
       "self": "我",
       "actions": "操作",
+      "rowMenu": "{{email}} 的操作",
+      "resetPassword": "重置密码",
+      "resetDoneTitle": "密码已重置",
+      "temporaryPassword": "临时密码",
+      "disable": "停用",
+      "enable": "启用",
+      "disabledToast": "已停用",
+      "enabledToast": "已启用",
+      "changeRole": "变更角色",
+      "roleChanged": "角色已变更",
+      "delete": "删除",
+      "deleteTitle": "删除用户？",
+      "deleteDescription": "将永久删除 {{email}}（{{displayName}}）。",
+      "deleted": "已删除",
       "create": {
         "title": "新建用户",
         "email": "邮箱",
@@ -307,6 +321,12 @@
         "copy": "复制",
         "copied": "已复制",
         "copyFailed": "复制失败，请手动选中密码复制"
+      },
+      "errors": {
+        "USER_NOT_FOUND": "该用户不存在",
+        "SELF_ACTION_FORBIDDEN": "不能对自己执行此操作",
+        "LAST_ADMIN": "至少保留一名管理员",
+        "INVALID_ROLE": "角色无效"
       }
     },
     "maintenance": {

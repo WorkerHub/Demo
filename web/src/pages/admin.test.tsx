@@ -20,6 +20,11 @@ vi.mock("@/lib/api", async (importOriginal) => {
       users: vi.fn(),
       approveUser: vi.fn(),
       rejectUser: vi.fn(),
+      resetUserPassword: vi.fn(),
+      disableUser: vi.fn(),
+      enableUser: vi.fn(),
+      changeUserRole: vi.fn(),
+      deleteUser: vi.fn(),
       runSetup: vi.fn()
     },
     meApi: { ...actual.meApi, get: vi.fn(), update: vi.fn() }
@@ -335,5 +340,197 @@ describe("系统管理", () => {
 
     expect(await screen.findByText("请输入邮箱")).toBeInTheDocument()
     expect(adminApi.createUser).not.toHaveBeenCalled()
+  })
+
+  it("行菜单：普通行四项，待批准行没有 ⋯，自己的行没有停用与删除", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.users).mockResolvedValue({
+      items: [
+        adminUser({
+          id: 1,
+          email: "owner@example.com",
+          displayName: "Owner",
+          role: "admin"
+        }),
+        adminUser(),
+        adminUser({
+          id: 3,
+          email: "pending@example.com",
+          status: "pending",
+          emailVerified: false
+        })
+      ]
+    })
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+    await screen.findByText("user@example.com")
+
+    expect(
+      screen.queryByRole("button", { name: "pending@example.com 的操作" })
+    ).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "批准" })).toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole("button", { name: "user@example.com 的操作" })
+    )
+    expect(
+      (await screen.findAllByRole("menuitem")).map((item) => item.textContent)
+    ).toEqual(["重置密码", "停用", "变更角色", "删除"])
+    await user.keyboard("{Escape}")
+
+    await user.click(
+      screen.getByRole("button", { name: "owner@example.com 的操作" })
+    )
+    expect(
+      (await screen.findAllByRole("menuitem")).map((item) => item.textContent)
+    ).toEqual(["重置密码", "变更角色"])
+  })
+
+  it("停用与启用：按当前状态调对应接口并重载列表", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.users).mockResolvedValue({
+      items: [
+        adminUser({
+          id: 1,
+          email: "owner@example.com",
+          displayName: "Owner",
+          role: "admin"
+        }),
+        adminUser(),
+        adminUser({
+          id: 4,
+          email: "old@example.com",
+          displayName: "Old",
+          status: "disabled"
+        })
+      ]
+    })
+    vi.mocked(adminApi.disableUser).mockResolvedValue({ success: true })
+    vi.mocked(adminApi.enableUser).mockResolvedValue({ success: true })
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+    await screen.findByText("user@example.com")
+
+    await user.click(
+      screen.getByRole("button", { name: "user@example.com 的操作" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "停用" }))
+    await waitFor(() => expect(adminApi.disableUser).toHaveBeenCalledWith(2))
+    await waitFor(() => expect(adminApi.users).toHaveBeenCalledTimes(2))
+
+    await user.click(
+      await screen.findByRole("button", { name: "old@example.com 的操作" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "启用" }))
+    await waitFor(() => expect(adminApi.enableUser).toHaveBeenCalledWith(4))
+  })
+
+  it("删除：二次确认写明邮箱与昵称，确认后调删除接口并重载", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.users).mockResolvedValue({
+      items: [adminUser()]
+    })
+    vi.mocked(adminApi.deleteUser).mockResolvedValue({ success: true })
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+    await screen.findByText("user@example.com")
+
+    await user.click(
+      screen.getByRole("button", { name: "user@example.com 的操作" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "删除" }))
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(dialog).toHaveTextContent("user@example.com")
+    expect(dialog).toHaveTextContent("User")
+
+    await user.click(screen.getByRole("button", { name: "删除" }))
+    await waitFor(() => expect(adminApi.deleteUser).toHaveBeenCalledWith(2))
+    await waitFor(() => expect(adminApi.users).toHaveBeenCalledTimes(2))
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+  })
+
+  it("删除最后一个管理员：错误留在弹窗内，不关闭、不重载", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.users).mockResolvedValue({
+      items: [adminUser()]
+    })
+    vi.mocked(adminApi.deleteUser).mockRejectedValue(
+      new ApiError({ status: 409, message: "last admin", code: "LAST_ADMIN" })
+    )
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+    await screen.findByText("user@example.com")
+
+    await user.click(
+      screen.getByRole("button", { name: "user@example.com 的操作" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "删除" }))
+    await user.click(screen.getByRole("button", { name: "删除" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "至少保留一名管理员"
+    )
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument()
+    expect(adminApi.users).toHaveBeenCalledTimes(1)
+  })
+
+  it("变更角色：保存后调角色接口并重载", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.users).mockResolvedValue({ items: [adminUser()] })
+    vi.mocked(adminApi.changeUserRole).mockResolvedValue({ success: true })
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+    await screen.findByText("user@example.com")
+
+    await user.click(
+      screen.getByRole("button", { name: "user@example.com 的操作" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "变更角色" }))
+
+    expect(await screen.findByRole("radio", { name: "成员" })).toBeChecked()
+    await user.click(screen.getByRole("radio", { name: "管理员" }))
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    await waitFor(() =>
+      expect(adminApi.changeUserRole).toHaveBeenCalledWith(2, "admin")
+    )
+    await waitFor(() => expect(adminApi.users).toHaveBeenCalledTimes(2))
+  })
+
+  it("重置密码：弹窗显示邮箱与一次性密码，关闭后从页面消失", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue(adminSettings())
+    vi.mocked(adminApi.users).mockResolvedValue({ items: [adminUser()] })
+    vi.mocked(adminApi.resetUserPassword).mockResolvedValue({
+      success: true,
+      email: "user@example.com",
+      temporaryPassword: "temp-reset-2026"
+    })
+
+    const user = userEvent.setup()
+    renderAdmin()
+    await user.click(await screen.findByRole("tab", { name: "用户管理" }))
+    await screen.findByText("user@example.com")
+
+    await user.click(
+      screen.getByRole("button", { name: "user@example.com 的操作" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "重置密码" }))
+
+    expect(await screen.findByText("temp-reset-2026")).toBeInTheDocument()
+    expect(screen.getByText("密码已重置")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "关闭" }))
+    expect(screen.queryByText("temp-reset-2026")).not.toBeInTheDocument()
   })
 })
