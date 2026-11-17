@@ -5,7 +5,13 @@
  * admin + active + 已验证，之后才按开关决定待批准/待验证。这样两个并发首注册
  * 不会各建一个管理员（SQLite 在一条语句里判 `NOT EXISTS`）。
  */
-import { emailCodesTable, usersTable } from "../../lib/tables"
+import {
+  emailCodesTable,
+  passkeysTable,
+  sessionsTable,
+  user2faTable,
+  usersTable
+} from "../../lib/tables"
 
 export type UserStatus = "pending" | "active" | "disabled"
 export type UserRole = "admin" | "user"
@@ -223,6 +229,92 @@ export async function deletePendingUser(
       .bind(id)
   ])
   return results[1]?.meta.changes === 1
+}
+
+/**
+ * 「最后一名可用管理员」判据（可用 = `role='admin' AND status='active'`）：目标
+ * 不是可用管理员、或库里可用管理员多于一名时放行。写进 UPDATE/DELETE 的 WHERE
+ * 与写入同一条语句，避免两次并发降级/停用各自通过预检、把管理员清零。
+ */
+function notLastActiveAdmin(table: string): string {
+  return `(role != 'admin' OR status != 'active'
+      OR (SELECT COUNT(*) FROM ${table}
+           WHERE role = 'admin' AND status = 'active') > 1)`
+}
+
+/** 停用：最后一名可用管理员不可停用；条件写未命中时返回 false（路由据此回 409）。 */
+export async function disableUser(
+  db: D1Database,
+  prefix: string,
+  id: number
+): Promise<boolean> {
+  const table = usersTable(prefix)
+  const result = await db
+    .prepare(
+      `UPDATE ${table}
+          SET status = 'disabled', updated_at = ?
+        WHERE id = ? AND status != 'disabled' AND ${notLastActiveAdmin(table)}`
+    )
+    .bind(new Date().toISOString(), id)
+    .run()
+  return result.meta.changes === 1
+}
+
+/** 改角色：降级最后一名可用管理员时条件写不生效（返回 false）。 */
+export async function setUserRole(
+  db: D1Database,
+  prefix: string,
+  id: number,
+  role: UserRole
+): Promise<boolean> {
+  const table = usersTable(prefix)
+  const result = await db
+    .prepare(
+      `UPDATE ${table}
+          SET role = ?, updated_at = ?
+        WHERE id = ? AND role != ?
+          AND (? = 'admin' OR ${notLastActiveAdmin(table)})`
+    )
+    .bind(role, new Date().toISOString(), id, role, role)
+    .run()
+  return result.meta.changes === 1
+}
+
+/**
+ * 硬删用户：先删主行（带最后一名可用管理员的护栏），成功后清会话、两步登录、
+ * 通行密钥与同邮箱验证码。从表必须排在主行之后——否则护栏拦下时仍会抹掉那名
+ * 管理员的会话与通行密钥。没有外键，孤儿行不影响鉴权。
+ */
+export async function hardDeleteUser(
+  db: D1Database,
+  prefix: string,
+  id: number,
+  email: string
+): Promise<boolean> {
+  const table = usersTable(prefix)
+  const deleted = await db
+    .prepare(
+      `DELETE FROM ${table} WHERE id = ? AND ${notLastActiveAdmin(table)}`
+    )
+    .bind(id)
+    .run()
+  if (deleted.meta.changes !== 1) return false
+
+  await db.batch([
+    db
+      .prepare(`DELETE FROM ${sessionsTable(prefix)} WHERE user_id = ?`)
+      .bind(id),
+    db
+      .prepare(`DELETE FROM ${user2faTable(prefix)} WHERE user_id = ?`)
+      .bind(id),
+    db
+      .prepare(`DELETE FROM ${passkeysTable(prefix)} WHERE user_id = ?`)
+      .bind(id),
+    db
+      .prepare(`DELETE FROM ${emailCodesTable(prefix)} WHERE email = ?`)
+      .bind(email)
+  ])
+  return true
 }
 
 /** 是否已有可用的管理员（单人档建所有者时防重复）。 */

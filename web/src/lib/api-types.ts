@@ -191,3 +191,16 @@ export interface AdminCreateUserResult {
   /** 系统生成的一次性初始密码，仅本次响应返回，之后任何接口不回显、不落明文库。 */
   temporaryPassword: string
 }
+
+/** 停用 / 启用 / 改角色 / 删除用户这四类操作的统一成功响应。 */
+export interface AdminUserActionResult {
+  success: true
+}
+
+/** POST /api/admin/users/:id/reset-password 响应：一次性密码仅此响应返回。 */
+export interface AdminResetPasswordResult {
+  success: true
+  email: string
+  /** 新的一次性密码：只在此响应出现，之后任何接口不回显、不落明文库。 */
+  temporaryPassword: string
+}
