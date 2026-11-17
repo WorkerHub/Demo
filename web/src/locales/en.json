@@ -75,7 +75,10 @@
       "UNAUTHORIZED": "Please sign in first",
       "FORBIDDEN": "You do not have permission for this action",
       "PASSWORD_INCORRECT": "Current password is incorrect",
-      "DISPLAY_NAME_LOCKED": "Display name editing is locked"
+      "DISPLAY_NAME_LOCKED": "Display name editing is locked",
+      "SELF_ACTION_FORBIDDEN": "You cannot perform this action on your own account",
+      "LAST_ADMIN": "Keep at least one active admin",
+      "USER_NOT_FOUND": "User not found"
     }
   },
   "home": {
@@ -294,6 +297,24 @@
       "emailUnverified": "Email unverified",
       "self": "You",
       "actions": "Actions",
+      "actionsFor": "Actions for {{email}}",
+      "reset": {
+        "title": "Reset password",
+        "password": "One-time password"
+      },
+      "disable": "Disable",
+      "enable": "Enable",
+      "disabled": "Disabled",
+      "enabled": "Enabled",
+      "promote": "Make admin",
+      "demote": "Make member",
+      "roleChanged": "Role updated",
+      "delete": {
+        "title": "Delete user",
+        "confirm": "Delete",
+        "description": "Delete {{email}} ({{name}})? This cannot be undone.",
+        "done": "User deleted"
+      },
       "create": {
         "title": "Create user",
         "email": "Email",

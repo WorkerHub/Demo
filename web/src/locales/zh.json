@@ -75,7 +75,10 @@
       "UNAUTHORIZED": "请先登录",
       "FORBIDDEN": "没有权限执行该操作",
       "PASSWORD_INCORRECT": "当前密码不正确",
-      "DISPLAY_NAME_LOCKED": "昵称已被禁止修改"
+      "DISPLAY_NAME_LOCKED": "昵称已被禁止修改",
+      "SELF_ACTION_FORBIDDEN": "不能对自己执行该操作",
+      "LAST_ADMIN": "至少保留一个可登录的管理员",
+      "USER_NOT_FOUND": "用户不存在"
     }
   },
   "home": {
@@ -294,6 +297,24 @@
       "emailUnverified": "邮箱未验证",
       "self": "我",
       "actions": "操作",
+      "actionsFor": "{{email}} 的操作",
+      "reset": {
+        "title": "重置密码",
+        "password": "一次性密码"
+      },
+      "disable": "停用",
+      "enable": "启用",
+      "disabled": "已停用",
+      "enabled": "已启用",
+      "promote": "设为管理员",
+      "demote": "设为成员",
+      "roleChanged": "角色已更新",
+      "delete": {
+        "title": "删除用户",
+        "confirm": "删除",
+        "description": "将删除 {{email}}（{{name}}），此操作无法撤销。",
+        "done": "用户已删除"
+      },
       "create": {
         "title": "新建用户",
         "email": "邮箱",

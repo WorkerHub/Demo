@@ -9,11 +9,14 @@
  * - 只有带 body 的请求才设 Content-Type，GET 与 204 不碰。
  */
 import type {
+  AdminChangeRoleInput,
   AdminCreateUserInput,
   AdminCreateUserResult,
+  AdminResetPasswordResult,
   AdminSettings,
   AdminSettingsUpdate,
   AdminUser,
+  AdminUserActionResult,
   LoginResult,
   Me,
   MeUpdateInput,
@@ -273,6 +276,32 @@ export const adminApi = {
 
   rejectUser: (id: number) =>
     request<{ success: true }>(`/admin/users/${id}/reject`, { method: "POST" }),
+
+  resetUserPassword: (id: number) =>
+    request<AdminResetPasswordResult>(`/admin/users/${id}/reset-password`, {
+      method: "POST"
+    }),
+
+  disableUser: (id: number) =>
+    request<AdminUserActionResult>(`/admin/users/${id}/disable`, {
+      method: "POST"
+    }),
+
+  enableUser: (id: number) =>
+    request<AdminUserActionResult>(`/admin/users/${id}/enable`, {
+      method: "POST"
+    }),
+
+  changeUserRole: (id: number, input: AdminChangeRoleInput) =>
+    request<AdminUserActionResult>(`/admin/users/${id}/role`, {
+      method: "POST",
+      body: input
+    }),
+
+  deleteUser: (id: number) =>
+    request<AdminUserActionResult>(`/admin/users/${id}/delete`, {
+      method: "POST"
+    }),
 
   runSetup: () => request<AdminSetupResult>("/admin/setup", { method: "POST" })
 }
