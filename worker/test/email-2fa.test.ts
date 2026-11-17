@@ -290,4 +290,48 @@ describe("邮箱验证码第二因子", () => {
       stub.restore()
     }
   })
+
+  it("未启用邮箱 2FA 时 /2fa/verify（method: email）被拒绝", async () => {
+    const { env, db } = await initializedContext()
+    configureResend(db, activePrefix(env))
+    const stub = stubResend()
+    try {
+      const { cookie } = await registerAndLogin(env, { email: EMAIL })
+      await enableEmail2fa(env, cookie, stub)
+
+      // 先拿到有效 tempToken，再停用邮箱 2FA。
+      const login = await loginUser(env, { email: EMAIL })
+      const body = (await login.json()) as Requires2faBody
+      await postJson(
+        env,
+        "/api/auth/2fa/email/disable",
+        { password: TEST_PASSWORD },
+        { cookie }
+      )
+
+      // 另起一次启用发码，在库里留下一枚在途 email_2fa 码（模拟其他会话/停用前的码）。
+      clearCounters(db, activePrefix(env), "code_cooldown:email_2fa")
+      const resend = await postJson(
+        env,
+        "/api/auth/2fa/email/enable/send",
+        {},
+        { cookie }
+      )
+      expect(resend.status).toBe(200)
+      const code = codeFromEmail(stub.sent[stub.sent.length - 1])
+
+      // 未启用邮箱 2FA，即便码有效也必须拒绝。
+      await expectCode(
+        await postJson(env, "/api/auth/2fa/verify", {
+          tempToken: body.tempToken,
+          method: "email",
+          code
+        }),
+        400,
+        "INVALID_CODE"
+      )
+    } finally {
+      stub.restore()
+    }
+  })
 })

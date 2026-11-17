@@ -26,7 +26,10 @@ export interface EmailContent {
   text: string
 }
 
-export type CodeEmailPurpose = "register_verify" | "password_reset" | "email_2fa"
+export type CodeEmailPurpose =
+  | "register_verify"
+  | "password_reset"
+  | "email_2fa"
 
 const CODE_TTL_MINUTES = 10
 

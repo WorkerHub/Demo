@@ -587,6 +587,10 @@ authRoutes.post("/2fa/verify", async (c) => {
   }
 
   if (body?.method === "email") {
+    const twoFactor = await getTwoFactor(c.env.DB, prefix, stepUp.userId)
+    if (!twoFactor?.email_2fa_enabled) {
+      return registerTwoFaFailure(c, prefix, stepUp.userId)
+    }
     const user = await findUserById(c.env.DB, prefix, stepUp.userId)
     if (!user) {
       return apiError(c, 401, "STEP_UP_REQUIRED", "Sign-in session is invalid")
