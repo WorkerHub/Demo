@@ -18,7 +18,7 @@
 import defaults from "./defaults.json"
 
 /** 展示名（首页、关于页、页面标题）。 */
-export const PROJECT_NAME = "Temp"
+export const PROJECT_NAME = "Demo"
 
 /** 仓库名 / Worker 名（wrangler.toml 与 package.json 的 name）。 */
 export const PROJECT_SLUG = "demo"
@@ -30,7 +30,7 @@ export const PROJECT_SLUG = "demo"
 export const DEFAULT_TABLE_PREFIX: string = defaults.defaultTablePrefix
 
 /** 一句话说明（首页与「关于」页）。 */
-export const PROJECT_TAGLINE = "Temp — WorkerHub 模板骨架项目"
+export const PROJECT_TAGLINE = "WorkerHub 项目模板的参考实现与演示站"
 
 /**
  * 源码仓库地址（「关于」页的开源地址来源）。生成新项目时与上面几个令牌一起改。

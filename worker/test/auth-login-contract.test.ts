@@ -12,10 +12,12 @@ import { TOTP } from "otpauth"
 import { describe, expect, it, vi } from "vitest"
 
 // WebAuthn 浏览器侧无法在 vitest 里跑：换成固定返回（同 auth-passkey.test.ts）。
+import { PROJECT_NAME } from "../src/config/project"
+
 vi.mock("@simplewebauthn/server", () => ({
   generateRegistrationOptions: vi.fn(async () => ({
     challenge: "register-challenge",
-    rp: { id: "worker.test", name: "Template" },
+    rp: { id: "worker.test", name: PROJECT_NAME },
     user: { id: "dXNlcg", name: "user", displayName: "user" },
     pubKeyCredParams: [],
     timeout: 60_000,

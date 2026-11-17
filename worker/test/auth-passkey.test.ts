@@ -7,10 +7,12 @@
  */
 import { describe, expect, it, vi } from "vitest"
 
+import { PROJECT_NAME } from "../src/config/project"
+
 vi.mock("@simplewebauthn/server", () => ({
   generateRegistrationOptions: vi.fn(async () => ({
     challenge: "register-challenge",
-    rp: { id: "worker.test", name: "Template" },
+    rp: { id: "worker.test", name: PROJECT_NAME },
     user: { id: "dXNlcg", name: "user", displayName: "user" },
     pubKeyCredParams: [],
     timeout: 60_000,

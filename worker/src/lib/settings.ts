@@ -19,7 +19,7 @@ import type { EmailSettingsView } from "../services/email"
 import type { Env } from "../types"
 
 /** 构建信息未注入时的兜底版本号：必须非空、且仍是 `git describe` 的形态。 */
-export const UNKNOWN_VERSION = "v0.0.0-0-unknown"
+export const UNKNOWN_VERSION = "v1.0.0-0-unknown"
 
 export interface RegistrationSettings {
   enabled: boolean

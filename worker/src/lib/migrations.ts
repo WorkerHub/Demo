@@ -151,7 +151,7 @@ function themeRemovalMigration(prefix: string): Migration {
  * - `sql` 清理旧资料锁的设置行（可重复执行）。
  * - 全新库：`schema_v2` 建列与索引，本迁移紧接着删掉，两条路径收敛到同一形状。
  * - 回滚：补回列（`ADD COLUMN username TEXT NOT NULL DEFAULT ''`）与部分唯一索引即可让
- *   旧代码运行；每行原值不可恢复（只能靠 D1 Time Travel）。规格已定 Demo 数据可弃。
+ *   旧代码运行；每行原值不可恢复（只能靠 D1 Time Travel）。规格已定演示环境数据可弃。
  */
 function usernameRemovalMigration(prefix: string): Migration {
   const table = usersTable(prefix)

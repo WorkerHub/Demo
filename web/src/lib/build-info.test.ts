@@ -32,9 +32,9 @@ function expectedVersion(): string {
     if (matched) return `${matched[1]}-${matched[2]}-${matched[3]}`
   }
   const hash = git(["rev-parse", "--short", "HEAD"])
-  if (!hash) return "v0.0.0-0-unknown"
+  if (!hash) return "v1.0.0-0-unknown"
   const count = git(["rev-list", "--count", "HEAD"]) ?? "0"
-  return `v0.0.0-${count}-${hash}`
+  return `v1.0.0-${count}-${hash}`
 }
 
 describe("构建信息", () => {
