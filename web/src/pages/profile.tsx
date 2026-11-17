@@ -5,7 +5,6 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { meApi } from "@/lib/api"
 import { describeApiError } from "@/lib/api-errors"
 import { useAuthStore } from "@/stores/auth"
@@ -52,22 +51,44 @@ export function ProfilePage() {
     }
   }
 
+  const rows = (
+    <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
+      <dt className="text-muted-foreground">{t("profile.displayName")}</dt>
+      <dd>
+        {editing ? (
+          <Input
+            id="profile-display-name"
+            name="display-name"
+            autoComplete="name"
+            aria-label={t("profile.displayName")}
+            value={displayName}
+            onChange={(event) => setDisplayName(event.target.value)}
+          />
+        ) : (
+          user.displayName
+        )}
+      </dd>
+
+      <dt className="text-muted-foreground">{t("profile.email")}</dt>
+      <dd className="flex items-center gap-2">
+        <span className="break-all">{user.email}</span>
+        <Badge variant={user.emailVerified ? "secondary" : "outline"}>
+          {user.emailVerified
+            ? t("profile.emailVerified")
+            : t("profile.emailUnverified")}
+        </Badge>
+      </dd>
+
+      <dt className="text-muted-foreground">{t("profile.role")}</dt>
+      <dd>{t(`common.role.${user.role}`)}</dd>
+    </dl>
+  )
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {editing ? (
         <form className="space-y-4" onSubmit={save}>
-          <div className="space-y-1.5">
-            <Label htmlFor="profile-display-name">
-              {t("profile.displayName")}
-            </Label>
-            <Input
-              id="profile-display-name"
-              name="display-name"
-              autoComplete="name"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-            />
-          </div>
+          {rows}
 
           {error ? (
             <p role="alert" className="text-sm text-destructive">
@@ -90,7 +111,7 @@ export function ProfilePage() {
           </div>
         </form>
       ) : (
-        <section className="space-y-4">
+        <>
           <div className="flex justify-end">
             <Button
               type="button"
@@ -102,29 +123,9 @@ export function ProfilePage() {
               {t("common.actions.edit")}
             </Button>
           </div>
-          <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
-            <dt className="text-muted-foreground">
-              {t("profile.displayName")}
-            </dt>
-            <dd>{user.displayName}</dd>
-          </dl>
-        </section>
+          {rows}
+        </>
       )}
-
-      <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
-        <dt className="text-muted-foreground">{t("profile.email")}</dt>
-        <dd className="flex items-center gap-2">
-          <span className="break-all">{user.email}</span>
-          <Badge variant={user.emailVerified ? "secondary" : "outline"}>
-            {user.emailVerified
-              ? t("profile.emailVerified")
-              : t("profile.emailUnverified")}
-          </Badge>
-        </dd>
-
-        <dt className="text-muted-foreground">{t("profile.role")}</dt>
-        <dd>{t(`common.role.${user.role}`)}</dd>
-      </dl>
     </div>
   )
 }
