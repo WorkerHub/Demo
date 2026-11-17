@@ -1,25 +1,16 @@
 /**
- * 迁移的唯一定义处：结构坍缩后的基线 `schema_v1`，其后按序追加。
+ * 迁移的唯一定义处：单一基线 `schema_v1`（历史增量 schema_v1..v6 坍缩）。
  *
- * - 全新库：`schema_v1` 的 sql 按 schema.ts 的定版 DDL 一次建出全部表/索引，
- *   随后的 `schema_v2` 起在其上叠加。
+ * - 全新库：`schema_v1` 的 sql 按 schema.ts 的定版 DDL 一次建出全部表与索引即最终形态。
+ * - 生产库：已有 v1..v6 历史记录的生产库由执行器只读识别为已最新（账本已有 schema_v1，
+ *   直接 skipped），不重跑、不报错、不写任何数据（含账本）。
  * - 重复执行：全部 `CREATE … IF NOT EXISTS`，幂等空操作（账本已记账时直接 skipped）。
- * - 今后结构变化继续从 `schema_v3` 往后追加；`schema_v1` 不得改名、改内容或调序。
- * - 追加迁移的加列动作放 `prepare`（PRAGMA 判断后再 ALTER），保证「执行到一半失败」
- *   时重跑不会卡在 duplicate column；`sql` 只放可重复执行的语句。
  *
  * 语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）。
  * 表名/索引名一律经 tables.ts（基线迁移经 schema.ts 的 `{prefix}` 占位）拼装，不写死前缀。
  */
 import { SCHEMA_INDEXES, SCHEMA_TABLES, baselineStatements } from "./schema"
-import {
-  emailCodesTable,
-  indexName,
-  settingsTable,
-  tableName,
-  user2faTable,
-  usersTable
-} from "./tables"
+import { tableName } from "./tables"
 
 /** 迁移执行时能拿到的东西：库与生效前缀。 */
 export interface MigrationContext {
@@ -34,223 +25,8 @@ export interface Migration {
   prepare?: (ctx: MigrationContext) => Promise<void>
 }
 
-/** 唯一基线迁移名。追加迁移从 schema_v2 起，不改这一条。 */
+/** 唯一基线迁移名（坍缩为单一 V1）。 */
 export const BASELINE_MIGRATION = "schema_v1"
-
-/** 用户名迁移名：给 users 加 `username` 列与部分唯一索引。 */
-export const USERNAME_MIGRATION = "schema_v2"
-
-/** 首登强制改密迁移名：给 users 加 `must_change_password` 列。 */
-export const MUST_CHANGE_PASSWORD_MIGRATION = "schema_v3"
-
-/** 主题剥离迁移名：把 theme 从用户属性里删掉（主题只存前端 localStorage）。 */
-export const THEME_REMOVAL_MIGRATION = "schema_v4"
-
-/** 用户名退役迁移名：删 `users.username` 列、部分唯一索引与资料锁设置行。 */
-export const USERNAME_REMOVAL_MIGRATION = "schema_v5"
-
-/** 邮箱验证码第二因子迁移名：user_2fa 加 email_2fa_enabled 列、验证码表扩 CHECK。 */
-export const EMAIL_TWO_FACTOR_MIGRATION = "schema_v6"
-
-/**
- * `users.username`（可自定义的用户名，`''` = 未设置）。
- *
- * - 加列走 `prepare`：先看 PRAGMA 再 ALTER，列已在时跳过（幂等，重跑不报 duplicate column）。
- * - 唯一性用**部分**唯一索引：不回填存量数据，存量行全是 `''`，普通 UNIQUE 建索引时
- *   就会因多行 `''` 失败。`''` 参与不了索引，等于「未设置」不占名。
- * - `COLLATE NOCASE` 让 Alice / alice 视为同名（只折叠 ASCII，CJK 无大小写不受影响）。
- * - 回滚：`DROP INDEX`；新增列留着对旧代码无副作用。
- * - 本迁移的产物已由 `schema_v5` 撤销（删列与索引）；保留它只为账本连续可重放。
- */
-function usernameMigration(prefix: string): Migration {
-  const table = usersTable(prefix)
-  const index = indexName(prefix, "users_username")
-  return {
-    name: USERNAME_MIGRATION,
-    sql: `CREATE UNIQUE INDEX IF NOT EXISTS ${index}
-  ON ${table}(username COLLATE NOCASE) WHERE username <> ''`,
-    prepare: async (ctx) => {
-      const columns = await ctx.db
-        .prepare(`PRAGMA table_info(${table})`)
-        .all<{ name: string }>()
-      if (columns.results.some((column) => column.name === "username")) return
-      await ctx.db
-        .prepare(
-          `ALTER TABLE ${table} ADD COLUMN username TEXT NOT NULL DEFAULT ''`
-        )
-        .run()
-    }
-  }
-}
-
-/**
- * `users.must_change_password`（管理员建号的首次强制改密标记，0/1）。
- *
- * - 加列走 `prepare`：先看 PRAGMA 再 ALTER，列已在时跳过（幂等，重跑不报 duplicate column）。
- * - 无索引诉求，`sql` 留空（执行器对空 sql 幂等跳过）。
- * - 回滚：加列对旧代码无副作用（默认 0），无需专门回滚动作。
- */
-function mustChangePasswordMigration(prefix: string): Migration {
-  const table = usersTable(prefix)
-  return {
-    name: MUST_CHANGE_PASSWORD_MIGRATION,
-    sql: "",
-    prepare: async (ctx) => {
-      const columns = await ctx.db
-        .prepare(`PRAGMA table_info(${table})`)
-        .all<{ name: string }>()
-      if (
-        columns.results.some((column) => column.name === "must_change_password")
-      ) {
-        return
-      }
-      await ctx.db
-        .prepare(
-          `ALTER TABLE ${table} ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`
-        )
-        .run()
-    }
-  }
-}
-
-/**
- * `users.theme` 退役（主题只存前端，不进用户属性）。
- *
- * - 删列走 `prepare`：先看 PRAGMA，列在才 DROP，重跑/中断重跑都幂等。
- * - 无索引诉求，`sql` 留空（执行器对空 sql 幂等跳过）。
- * - 全新库仍由冻结的 `schema_v1` 建出该列，本迁移紧接着删掉，两条路径收敛到同一形状。
- * - 执行顺序（硬约束）：必须等本版本部署完成后再触发升级。Cloudflare 部署传播期间
- *   边缘仍可能跑删列前的旧版本，而旧版本会 `SELECT theme`，此时删列会让那些位置报缺列。
- * - 回滚 Worker 到删列前的版本前，先补回列（`ADD COLUMN theme TEXT NOT NULL DEFAULT
- *   'system'`），否则旧代码读缺列直接报错；原值不可恢复，要取值只能靠 D1 Time Travel，
- *   所以执行前必须先备份。
- */
-function themeRemovalMigration(prefix: string): Migration {
-  const table = usersTable(prefix)
-  return {
-    name: THEME_REMOVAL_MIGRATION,
-    sql: "",
-    prepare: async (ctx) => {
-      const columns = await ctx.db
-        .prepare(`PRAGMA table_info(${table})`)
-        .all<{ name: string }>()
-      if (columns.results.some((column) => column.name === "theme")) {
-        await ctx.db.prepare(`ALTER TABLE ${table} DROP COLUMN theme`).run()
-      }
-    }
-  }
-}
-
-/**
- * `users.username` 退役（昵称是唯一名字字段）。
- *
- * - 删列走 `prepare`：先看 PRAGMA，列在才 DROP，重跑/中断重跑都幂等（`DROP COLUMN`
- *   本身不幂等，重跑会报 no such column）。
- * - 顺序硬约束：SQLite 不允许删被索引引用的列（报 "error in index … after drop column"），
- *   必须先 `DROP INDEX IF EXISTS` 掉 `schema_v2` 建的部分唯一索引。
- * - `sql` 清理旧资料锁的设置行（可重复执行）。
- * - 全新库：`schema_v2` 建列与索引，本迁移紧接着删掉，两条路径收敛到同一形状。
- * - 回滚：补回列（`ADD COLUMN username TEXT NOT NULL DEFAULT ''`）与部分唯一索引即可让
- *   旧代码运行；每行原值不可恢复（只能靠 D1 Time Travel）。规格已定 Demo 数据可弃。
- */
-function usernameRemovalMigration(prefix: string): Migration {
-  const table = usersTable(prefix)
-  const index = indexName(prefix, "users_username")
-  return {
-    name: USERNAME_REMOVAL_MIGRATION,
-    sql: `DELETE FROM ${settingsTable(prefix)} WHERE key = 'profile_username_locked'`,
-    prepare: async (ctx) => {
-      const columns = await ctx.db
-        .prepare(`PRAGMA table_info(${table})`)
-        .all<{ name: string }>()
-      if (!columns.results.some((column) => column.name === "username")) return
-      await ctx.db.prepare(`DROP INDEX IF EXISTS ${index}`).run()
-      await ctx.db.prepare(`ALTER TABLE ${table} DROP COLUMN username`).run()
-    }
-  }
-}
-
-/**
- * 邮箱验证码第二因子（schema_v6）：`user_2fa` 加 `email_2fa_enabled` 列，
- * `email_verification_codes.purpose` 的 CHECK 扩为三值（加 `email_2fa`）。
- *
- * - 加列走 `prepare`：先 PRAGMA 再 ALTER，列已在时跳过（幂等）。
- * - SQLite 不能 ALTER CHECK：读 `sqlite_master` 的建表 DDL 判断是否已含 `email_2fa`，
- *   未含则「建新表 → 复制数据 → 删旧表 → 重命名 → 重建两索引」；重跑幂等靠 DDL 判断。
- * - 码表数据 10 分钟即失效，复制即安全；表名/索引名经 tables.ts 拼装。
- * - 回滚：新列默认 0 对旧代码无副作用，CHECK 扩张无需专门回滚。
- */
-function emailTwoFactorMigration(prefix: string): Migration {
-  const user2fa = user2faTable(prefix)
-  const table = emailCodesTable(prefix)
-  const rebuilt = `${table}_new`
-  const lookupIndex = indexName(prefix, "email_codes_lookup")
-  const expiresIndex = indexName(prefix, "email_codes_expires")
-  return {
-    name: EMAIL_TWO_FACTOR_MIGRATION,
-    sql: "",
-    prepare: async (ctx) => {
-      // 1) user_2fa 加 email_2fa_enabled 列（幂等）。
-      const columns = await ctx.db
-        .prepare(`PRAGMA table_info(${user2fa})`)
-        .all<{ name: string }>()
-      if (
-        !columns.results.some((column) => column.name === "email_2fa_enabled")
-      ) {
-        await ctx.db
-          .prepare(
-            `ALTER TABLE ${user2fa} ADD COLUMN email_2fa_enabled INTEGER NOT NULL DEFAULT 0`
-          )
-          .run()
-      }
-
-      // 2) email_verification_codes 扩 CHECK（幂等：已含 email_2fa 即跳过）。
-      const rows = await ctx.db
-        .prepare(
-          `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`
-        )
-        .bind(table)
-        .all<{ sql: string | null }>()
-      if ((rows.results[0]?.sql ?? "").includes("email_2fa")) return
-
-      await ctx.db.prepare(`DROP TABLE IF EXISTS ${rebuilt}`).run()
-      await ctx.db
-        .prepare(
-          `CREATE TABLE ${rebuilt} (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  email      TEXT NOT NULL,
-  purpose    TEXT NOT NULL CHECK (purpose IN ('register_verify', 'password_reset', 'email_2fa')),
-  code_hash  TEXT NOT NULL,
-  expires_at INTEGER NOT NULL,
-  attempts   INTEGER NOT NULL DEFAULT 0,
-  used_at    INTEGER,
-  created_at INTEGER NOT NULL
-)`
-        )
-        .run()
-      await ctx.db
-        .prepare(
-          `INSERT INTO ${rebuilt} (id, email, purpose, code_hash, expires_at, attempts, used_at, created_at)
-           SELECT id, email, purpose, code_hash, expires_at, attempts, used_at, created_at FROM ${table}`
-        )
-        .run()
-      await ctx.db.prepare(`DROP TABLE ${table}`).run()
-      await ctx.db.prepare(`ALTER TABLE ${rebuilt} RENAME TO ${table}`).run()
-      await ctx.db
-        .prepare(
-          `CREATE INDEX IF NOT EXISTS ${lookupIndex}
-  ON ${table}(email, purpose, created_at)`
-        )
-        .run()
-      await ctx.db
-        .prepare(
-          `CREATE INDEX IF NOT EXISTS ${expiresIndex}
-  ON ${table}(expires_at)`
-        )
-        .run()
-    }
-  }
-}
 
 export function getMigrations(prefix: string): Migration[] {
   const statements = baselineStatements(prefix)
@@ -272,12 +48,5 @@ export function getMigrations(prefix: string): Migration[] {
     }
   }
 
-  return [
-    { name: BASELINE_MIGRATION, sql },
-    usernameMigration(prefix),
-    mustChangePasswordMigration(prefix),
-    themeRemovalMigration(prefix),
-    usernameRemovalMigration(prefix),
-    emailTwoFactorMigration(prefix)
-  ]
+  return [{ name: BASELINE_MIGRATION, sql }]
 }
