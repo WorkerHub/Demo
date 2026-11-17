@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { ApiError, adminApi } from "@/lib/api"
+import { adminApi, ApiError } from "@/lib/api"
 import { describeApiError } from "@/lib/api-errors"
 import type { AdminSettings, EmailProvider } from "@/lib/api-types"
 import { useAuthStore } from "@/stores/auth"

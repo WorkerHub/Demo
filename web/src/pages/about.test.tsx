@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest"
 import { AuthShell } from "@/components/auth-shell"
 import { buildInfo } from "@/lib/build-info"
 import { AboutPage } from "@/pages/about"
-import { useSiteStore } from "@/stores/site"
 import { publicInfo } from "@/test/fixtures"
+import { useSiteStore } from "@/stores/site"
 
 describe("关于页", () => {
   it("版本号、构建日期/时间与页脚同源，仓库地址来自身份单点", () => {

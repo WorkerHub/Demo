@@ -6,10 +6,10 @@
  */
 import { useEffect, useState } from "react"
 import {
-  type ResolvedTheme,
   resolveTheme,
   systemPrefersDark,
-  watchSystemTheme
+  watchSystemTheme,
+  type ResolvedTheme
 } from "@/lib/theme"
 import { useThemeStore } from "@/stores/theme"
 

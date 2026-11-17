@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
+import { adminCreatedUser, adminSettings, adminUser, me } from "@/test/fixtures"
 import { AdminPage } from "@/pages/admin/admin-page"
 import { useAuthStore } from "@/stores/auth"
-import { adminCreatedUser, adminSettings, adminUser, me } from "@/test/fixtures"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()

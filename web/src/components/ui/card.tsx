@@ -1,5 +1,5 @@
-import { cn } from "cn"
 import type * as React from "react"
+import { cn } from "cn"
 
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
@@ -67,4 +67,4 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
