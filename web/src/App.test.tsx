@@ -215,9 +215,30 @@ describe("路由与根门", () => {
 
     const brand = screen.getByRole("link", { name: "Template" })
     expect(brand.getAttribute("href")).toBe("/workbench")
+    // 站点标是装饰性图形：带在链接里，但不进可访问名（名仍只是站名）。
+    const mark = brand.querySelector("svg")
+    expect(mark).not.toBeNull()
+    expect(mark).toHaveAttribute("aria-hidden", "true")
     expect(
       screen.getByText(/Template · \d+\.\d+\.\d+ · [0-9a-f]+\+build\.\d+/)
     ).toBeInTheDocument()
+  })
+
+  it("移动抽屉页头的站名同样带站点标", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    renderAt(routes, "/workbench")
+    await screen.findByRole("heading", { name: "工作台" })
+
+    await accountUser().click(screen.getByRole("button", { name: "菜单" }))
+
+    const dialog = await screen.findByRole("dialog")
+    const brand = within(dialog).getByRole("link", { name: "Template" })
+    expect(brand.getAttribute("href")).toBe("/workbench")
+    expect(brand.querySelector("svg")).toHaveAttribute("aria-hidden", "true")
   })
 
   it("侧栏宽度与收起状态从 localStorage 恢复，展开后写回", async () => {
