@@ -427,7 +427,7 @@ export function SecuritySection() {
                   ? t("common.resendIn", {
                       seconds: emailCooldown.seconds
                     })
-                  : t("common.sendCode")}
+                  : t("common.actions.sendCode")}
               </Button>
             </div>
           )

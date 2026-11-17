@@ -472,7 +472,7 @@ export function LoginPage() {
             >
               {cooldown.running
                 ? t("common.resendIn", { seconds: cooldown.seconds })
-                : t("common.sendCode")}
+                : t("common.actions.sendCode")}
             </Button>
           ) : (
             <>

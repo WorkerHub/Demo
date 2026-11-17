@@ -180,9 +180,8 @@ describe("设置页", () => {
       renderSettings()
 
       await user.click(screen.getByRole("tab", { name: /安全|security/i }))
-      // 已开启时邮箱 disable 表单独立区域，其内只有 1 个当前密码框
-      const emailForm = screen.getByRole("form")
-      const pwInput = emailForm.querySelector('input[type="password"]') as HTMLInputElement
+      // 邮箱禁用表单的密码框有唯一 id
+      const pwInput = screen.getByLabelText(/当前密码|Current password/i, { selector: '#email-disable-password' })
       await user.type(pwInput, "current-pw")
       await user.click(
         screen.getByRole("button", { name: /关闭|Close/i })
