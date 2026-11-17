@@ -1,3 +1,4 @@
+import { PROJECT_NAME, PROJECT_TAGLINE } from "@worker/config/project"
 import type {
   AdminCreateUserResult,
   AdminSettings,
@@ -7,14 +8,16 @@ import type {
   SetupState
 } from "@/lib/api-types"
 
+export { PROJECT_NAME, PROJECT_TAGLINE }
+
 /** 测试用的 DTO 形状：默认值只覆盖页面关心的字段，用例按需覆盖。 */
 
 export function publicInfo(overrides: Partial<PublicInfo> = {}): PublicInfo {
   return {
-    name: "Template",
-    tagline: "A thin WorkerHub skeleton",
+    name: PROJECT_NAME,
+    tagline: PROJECT_TAGLINE,
     repositoryUrl: "https://example.com/template",
-    version: "v0.0.0-0-test",
+    version: "v1.0.0-0-test",
     appMode: "multi",
     registrationEnabled: true,
     emailConfigured: true,
@@ -70,7 +73,7 @@ export function adminSettings(
         username: "mailer",
         passwordSet: true,
         from: "noreply@example.com",
-        fromName: "Template"
+        fromName: PROJECT_NAME
       },
       resend: { apiKeySet: false, from: "", fromName: "" },
       configured: true

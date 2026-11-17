@@ -3,7 +3,13 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
-import { adminCreatedUser, adminSettings, adminUser, me } from "@/test/fixtures"
+import {
+  adminCreatedUser,
+  adminSettings,
+  adminUser,
+  me,
+  PROJECT_NAME
+} from "@/test/fixtures"
 import { AdminPage } from "@/pages/admin/admin-page"
 import { useAuthStore } from "@/stores/auth"
 
@@ -156,7 +162,7 @@ describe("系统管理", () => {
           port: "587",
           username: "mailer",
           from: "noreply@example.com",
-          fromName: "Template",
+          fromName: PROJECT_NAME,
           password: ""
         },
         resend: { from: "", fromName: "", apiKey: "" }

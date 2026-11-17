@@ -13,7 +13,7 @@ import {
   SIDEBAR_OPEN_STORAGE_KEY,
   SIDEBAR_WIDTH_STORAGE_KEY
 } from "@/lib/sidebar"
-import { me, publicInfo, setupState } from "@/test/fixtures"
+import { me, PROJECT_NAME, publicInfo, setupState } from "@/test/fixtures"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -190,7 +190,7 @@ describe("路由与根门", () => {
     )
     renderAt(routes, "/login")
     await screen.findByRole("heading", { name: "登录" })
-    expect(document.title).toBe("登录 · Template")
+    expect(document.title).toBe(`登录 · ${PROJECT_NAME}`)
   })
 
   it("登录态工作台标签页 title 为「工作台 · 站名」", async () => {
@@ -201,7 +201,7 @@ describe("路由与根门", () => {
 
     renderAt(routes, "/workbench")
     await screen.findByRole("heading", { name: "工作台" })
-    expect(document.title).toBe("工作台 · Template")
+    expect(document.title).toBe(`工作台 · ${PROJECT_NAME}`)
   })
 
   it("侧栏站名是回工作台的链接，底部显示三段式版本号", async () => {
@@ -213,14 +213,18 @@ describe("路由与根门", () => {
     renderAt(routes, "/workbench")
     await screen.findByRole("heading", { name: "工作台" })
 
-    const brand = screen.getByRole("link", { name: "Template" })
+    const brand = screen.getByRole("link", { name: PROJECT_NAME })
     expect(brand.getAttribute("href")).toBe("/workbench")
     // 站点标是装饰性图形：带在链接里，但不进可访问名（名仍只是站名）。
     const mark = brand.querySelector("svg")
     expect(mark).not.toBeNull()
     expect(mark).toHaveAttribute("aria-hidden", "true")
     expect(
-      screen.getByText(/Template · \d+\.\d+\.\d+ · [0-9a-f]+\+build\.\d+/)
+      screen.getByText(
+        new RegExp(
+          `${PROJECT_NAME} · \\d+\\.\\d+\\.\\d+ · [0-9a-f]+\\+build\\.\\d+`
+        )
+      )
     ).toBeInTheDocument()
   })
 
@@ -236,7 +240,7 @@ describe("路由与根门", () => {
     await accountUser().click(screen.getByRole("button", { name: "菜单" }))
 
     const dialog = await screen.findByRole("dialog")
-    const brand = within(dialog).getByRole("link", { name: "Template" })
+    const brand = within(dialog).getByRole("link", { name: PROJECT_NAME })
     expect(brand.getAttribute("href")).toBe("/workbench")
     expect(brand.querySelector("svg")).toHaveAttribute("aria-hidden", "true")
   })
@@ -325,12 +329,12 @@ describe("路由与根门", () => {
     const sidebar = view.container.querySelector('[data-slot="sidebar"]')
     expect(sidebar).toHaveAttribute("data-state", "collapsed")
 
-    const brand = screen.getByRole("link", { name: "Template" })
+    const brand = screen.getByRole("link", { name: PROJECT_NAME })
     expect(brand.className).not.toContain(
       "group-data-[collapsible=icon]:hidden"
     )
     expect(brand.querySelector("svg")).not.toBeNull()
-    expect(within(brand).getByText("Template").className).toContain(
+    expect(within(brand).getByText(PROJECT_NAME).className).toContain(
       "group-data-[collapsible=icon]:sr-only"
     )
   })
@@ -348,7 +352,9 @@ describe("路由与根门", () => {
     expect(collapse.textContent).toBe("")
 
     const version = screen.getByText(
-      /Template · \d+\.\d+\.\d+ · [0-9a-f]+\+build\.\d+/
+      new RegExp(
+        `${PROJECT_NAME} · \\d+\\.\\d+\\.\\d+ · [0-9a-f]+\\+build\\.\\d+`
+      )
     )
     expect(version.parentElement).toBe(collapse.parentElement)
     expect(collapse.parentElement?.className).toContain("justify-between")
