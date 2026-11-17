@@ -11,10 +11,14 @@ import {
   type CodeEmailPurpose
 } from "../src/locales/email"
 
-const PURPOSES: CodeEmailPurpose[] = ["register_verify", "password_reset"]
+const PURPOSES: CodeEmailPurpose[] = [
+  "register_verify",
+  "password_reset",
+  "twofa_email"
+]
 
 describe("邮件模板双语", () => {
-  it("两种语言 × 两种用途都有完整 subject/html/text，且不互相等同", () => {
+  it("两种语言 × 三种用途都有完整 subject/html/text，且不互相等同", () => {
     for (const purpose of PURPOSES) {
       const zh = renderCodeEmail("zh", purpose, "123456")
       const en = renderCodeEmail("en", purpose, "123456")

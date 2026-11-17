@@ -12,7 +12,14 @@
  * 表名/索引名一律经 tables.ts（基线迁移经 schema.ts 的 `{prefix}` 占位）拼装，不写死前缀。
  */
 import { SCHEMA_INDEXES, SCHEMA_TABLES, baselineStatements } from "./schema"
-import { indexName, settingsTable, tableName, usersTable } from "./tables"
+import {
+  emailCodesTable,
+  indexName,
+  settingsTable,
+  tableName,
+  user2faTable,
+  usersTable
+} from "./tables"
 
 /** 迁移执行时能拿到的东西：库与生效前缀。 */
 export interface MigrationContext {
@@ -41,6 +48,9 @@ export const THEME_REMOVAL_MIGRATION = "schema_v4"
 
 /** 用户名退役迁移名：删 `users.username` 列、部分唯一索引与资料锁设置行。 */
 export const USERNAME_REMOVAL_MIGRATION = "schema_v5"
+
+/** 邮箱第二因子迁移名：`user_2fa.email_enabled` 与验证码用途 `twofa_email`。 */
+export const EMAIL_2FA_MIGRATION = "schema_v6"
 
 /**
  * `users.username`（可自定义的用户名，`''` = 未设置）。
@@ -160,6 +170,86 @@ function usernameRemovalMigration(prefix: string): Migration {
   }
 }
 
+/**
+ * 邮箱第二因子：`user_2fa.email_enabled` 与验证码用途 `twofa_email`。
+ *
+ * - 加列走 `prepare`：先看 PRAGMA 再 ALTER，重跑不报 duplicate column。
+ * - `email_verification_codes.purpose` 的 CHECK 只能重建表（SQLite 不支持改 CHECK）：
+ *   建新表 → 按 id 原样搬数据 → 删旧表 → 改名 → 重建两条索引，整段放进一个
+ *   `db.batch` 事务，失败整体回滚；重跑按 `sqlite_master` 的建表 SQL 判断是否已完成。
+ * - 全新库与存量库收敛到同一形状：基线仍建旧 CHECK 的表，本迁移紧接着重建。
+ * - 执行顺序：本迁移对旧代码兼容（列只增、旧 purpose 仍合法），但新版本代码会读
+ *   `email_enabled`，必须先部署新版本、再由用户点「检查并升级数据库」；部署到升级
+ *   之间 `db/queries/twofa.ts` 对缺列按未启用兜底，登录不受影响。
+ * - 回滚：回滚 Worker 无需撤销本迁移（旧代码忽略新列、旧 purpose 仍合法）。彻底撤销
+ *   才需先删除 `purpose = 'twofa_email'` 的行，再按同样方式重建两表并去掉列；
+ *   执行前必须备份（D1 Time Travel）。
+ */
+function emailTwoFactorMigration(prefix: string): Migration {
+  const twofa = user2faTable(prefix)
+  const codes = emailCodesTable(prefix)
+  const temp = `${codes}__v6`
+  return {
+    name: EMAIL_2FA_MIGRATION,
+    sql: "",
+    prepare: async (ctx) => {
+      const columns = await ctx.db
+        .prepare(`PRAGMA table_info(${twofa})`)
+        .all<{ name: string }>()
+      if (!columns.results.some((column) => column.name === "email_enabled")) {
+        await ctx.db
+          .prepare(
+            `ALTER TABLE ${twofa} ADD COLUMN email_enabled INTEGER NOT NULL DEFAULT 0`
+          )
+          .run()
+      }
+
+      const table = await ctx.db
+        .prepare(
+          `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`
+        )
+        .bind(codes)
+        .first<{ sql: string }>()
+      if (!table) {
+        throw new Error(`table ${codes} is missing; run schema_v1 first`)
+      }
+      if (table.sql.includes("'twofa_email'")) return
+
+      await ctx.db.batch([
+        ctx.db.prepare(`DROP TABLE IF EXISTS ${temp}`),
+        ctx.db.prepare(
+          `CREATE TABLE ${temp} (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT NOT NULL,
+  purpose    TEXT NOT NULL CHECK (purpose IN ('register_verify', 'password_reset', 'twofa_email')),
+  code_hash  TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  used_at    INTEGER,
+  created_at INTEGER NOT NULL
+)`
+        ),
+        ctx.db.prepare(
+          `INSERT INTO ${temp}
+            (id, email, purpose, code_hash, expires_at, attempts, used_at, created_at)
+           SELECT id, email, purpose, code_hash, expires_at, attempts, used_at, created_at
+             FROM ${codes}`
+        ),
+        ctx.db.prepare(`DROP TABLE ${codes}`),
+        ctx.db.prepare(`ALTER TABLE ${temp} RENAME TO ${codes}`),
+        ctx.db.prepare(
+          `CREATE INDEX IF NOT EXISTS ${indexName(prefix, "email_codes_lookup")}
+             ON ${codes}(email, purpose, created_at)`
+        ),
+        ctx.db.prepare(
+          `CREATE INDEX IF NOT EXISTS ${indexName(prefix, "email_codes_expires")}
+             ON ${codes}(expires_at)`
+        )
+      ])
+    }
+  }
+}
+
 export function getMigrations(prefix: string): Migration[] {
   const statements = baselineStatements(prefix)
   const sql = statements.join(";\n\n")
@@ -185,6 +275,7 @@ export function getMigrations(prefix: string): Migration[] {
     usernameMigration(prefix),
     mustChangePasswordMigration(prefix),
     themeRemovalMigration(prefix),
-    usernameRemovalMigration(prefix)
+    usernameRemovalMigration(prefix),
+    emailTwoFactorMigration(prefix)
   ]
 }

@@ -13,7 +13,13 @@
  */
 import { Hono } from "hono"
 import { isSigningSecretConfigured } from "../core/auth"
+import { enforceRateLimit } from "../core/rate-limit"
 import { generateTotpSecret, verifyTotpCode } from "../core/totp"
+import {
+  checkResendCooldown,
+  sendVerificationCodeEmail,
+  verifyVerificationCode
+} from "../core/verification-codes"
 import {
   clearChallengeCookie,
   createRegistrationOptions,
@@ -23,14 +29,26 @@ import {
   verifyRegistration
 } from "../core/webauthn"
 import { insertPasskey, listPasskeys } from "../db/queries/passkeys"
-import { getTwoFactor, upsertTwoFactor } from "../db/queries/twofa"
+import {
+  getTwoFactor,
+  setEmailTwoFactorEnabled,
+  upsertTwoFactor
+} from "../db/queries/twofa"
 import { findUserById } from "../db/queries/users"
 import { currentUserId, requirePassword } from "../lib/account"
-import { apiError, readJsonBody } from "../lib/http"
+import { apiError, clientIp, rateLimited, readJsonBody } from "../lib/http"
 import { getTablePrefix } from "../lib/table-prefix"
+import { normalizeLanguage } from "../locales/email"
+import { isEmailConfigured } from "../services/email"
 import type { HonoEnv } from "../types"
 
 export const twoFactorManageRoutes = new Hono<HonoEnv>()
+
+const EMAIL_SETUP_LIMIT = {
+  action: "2fa_email_setup",
+  windowSeconds: 300,
+  max: 5
+}
 
 twoFactorManageRoutes.post("/totp/setup", async (c) => {
   const prefix = getTablePrefix(c.env)
@@ -187,4 +205,126 @@ twoFactorManageRoutes.post("/passkey/register/verify", async (c) => {
     transports: verdict.credential.transports
   })
   return c.json({ success: true }, 201)
+})
+
+// ─── 邮箱第二因子 ────────────────────────────────────────────────────────────
+
+twoFactorManageRoutes.post("/email/setup", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const userId = currentUserId(c)
+  const user = await findUserById(c.env.DB, prefix, userId)
+  if (!user) return apiError(c, 404, "USER_NOT_FOUND", "User not found")
+
+  const twoFactor = await getTwoFactor(c.env.DB, prefix, userId)
+  if (twoFactor?.email_enabled) {
+    return apiError(
+      c,
+      409,
+      "EMAIL_ALREADY_ENABLED",
+      "Email two-factor authentication is already enabled"
+    )
+  }
+  if (!isSigningSecretConfigured(c.env.SIGNING_SECRET)) {
+    return apiError(
+      c,
+      500,
+      "AUTH_UNAVAILABLE",
+      "Signing secret is not configured on this server"
+    )
+  }
+  if (!(await isEmailConfigured(c.env))) {
+    return apiError(
+      c,
+      409,
+      "EMAIL_NOT_CONFIGURED",
+      "Email delivery is not configured"
+    )
+  }
+
+  const limit = await enforceRateLimit(c.env.DB, prefix, {
+    ...EMAIL_SETUP_LIMIT,
+    ip: clientIp(c),
+    account: String(userId)
+  })
+  if (!limit.allowed) return rateLimited(c, limit.retryAfter)
+
+  const cooldown = await checkResendCooldown(c.env, {
+    email: user.email,
+    purpose: "twofa_email"
+  })
+  if (!cooldown.allowed) {
+    return apiError(
+      c,
+      429,
+      "CODE_COOLDOWN",
+      "Please wait before requesting another code",
+      { retryAfter: cooldown.retryAfter }
+    )
+  }
+
+  const sent = await sendVerificationCodeEmail(c.env, {
+    email: user.email,
+    purpose: "twofa_email",
+    language: normalizeLanguage(user.language) ?? "zh"
+  })
+  if (!sent.success) {
+    return apiError(
+      c,
+      502,
+      "EMAIL_SEND_FAILED",
+      "The verification email could not be sent"
+    )
+  }
+  return c.json({ success: true })
+})
+
+twoFactorManageRoutes.post("/email/enable", async (c) => {
+  const body = await readJsonBody<{ code?: unknown }>(c)
+  const code = typeof body?.code === "string" ? body.code.trim() : ""
+  if (!/^\d{6}$/.test(code)) {
+    return apiError(c, 400, "INVALID_CODE", "Invalid or expired code")
+  }
+  if (!isSigningSecretConfigured(c.env.SIGNING_SECRET)) {
+    return apiError(
+      c,
+      500,
+      "AUTH_UNAVAILABLE",
+      "Signing secret is not configured on this server"
+    )
+  }
+  if (!(await isEmailConfigured(c.env))) {
+    return apiError(
+      c,
+      409,
+      "EMAIL_NOT_CONFIGURED",
+      "Email delivery is not configured"
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const userId = currentUserId(c)
+  const user = await findUserById(c.env.DB, prefix, userId)
+  if (!user) return apiError(c, 404, "USER_NOT_FOUND", "User not found")
+
+  const verdict = await verifyVerificationCode(c.env, {
+    email: user.email,
+    purpose: "twofa_email",
+    code
+  })
+  if (!verdict.ok) {
+    return apiError(c, 400, "INVALID_CODE", "Invalid or expired code")
+  }
+
+  await setEmailTwoFactorEnabled(c.env.DB, prefix, userId, true)
+  return c.json({ success: true })
+})
+
+twoFactorManageRoutes.post("/email/disable", async (c) => {
+  const body = await readJsonBody<{ password?: unknown }>(c)
+  const denied = await requirePassword(c, body?.password)
+  if (denied) return denied
+
+  const prefix = getTablePrefix(c.env)
+  await setEmailTwoFactorEnabled(c.env.DB, prefix, currentUserId(c), false)
+  return c.json({ success: true })
 })

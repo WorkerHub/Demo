@@ -1,7 +1,7 @@
 /**
  * 邮件模板（规格 §5.6、§6.5）：中文 + 英文各一份，键一一对应。
  *
- * 只覆盖模板里会发的三类邮件：注册邮箱验证码、找回密码验证码、测试邮件。
+ * 只覆盖模板里会发的四类邮件：注册邮箱验证码、找回密码验证码、两步验证验证码、测试邮件。
  * 项目名取 `config/project.ts` 的 PROJECT_NAME（不写字面量，生成新项目后自动跟着变）。
  * 新增邮件类型必须同时补两种语言——`worker/test/email-locales.test.ts` 会核对语言集合。
  */
@@ -26,7 +26,10 @@ export interface EmailContent {
   text: string
 }
 
-export type CodeEmailPurpose = "register_verify" | "password_reset"
+export type CodeEmailPurpose =
+  | "register_verify"
+  | "password_reset"
+  | "twofa_email"
 
 const CODE_TTL_MINUTES = 10
 
@@ -50,6 +53,11 @@ export function renderCodeEmail(
         subject: `${PROJECT_NAME} 密码重置验证码`,
         html: `<p>您的密码重置验证码是：<strong>${code}</strong></p><p>有效期 ${CODE_TTL_MINUTES} 分钟。如果不是您本人操作，请忽略本邮件。</p>`,
         text: `您的密码重置验证码是：${code}\n有效期 ${CODE_TTL_MINUTES} 分钟。如果不是您本人操作，请忽略本邮件。`
+      },
+      twofa_email: {
+        subject: `${PROJECT_NAME} 两步验证验证码`,
+        html: `<p>您的两步验证验证码是：<strong>${code}</strong></p><p>有效期 ${CODE_TTL_MINUTES} 分钟。如果不是您本人操作，请忽略本邮件。</p>`,
+        text: `您的两步验证验证码是：${code}\n有效期 ${CODE_TTL_MINUTES} 分钟。如果不是您本人操作，请忽略本邮件。`
       }
     },
     en: {
@@ -62,6 +70,11 @@ export function renderCodeEmail(
         subject: `${PROJECT_NAME} password reset code`,
         html: `<p>Your password reset code is: <strong>${code}</strong></p><p>It expires in ${CODE_TTL_MINUTES} minutes. If you did not request this, ignore this email.</p>`,
         text: `Your password reset code is: ${code}\nIt expires in ${CODE_TTL_MINUTES} minutes. If you did not request this, ignore this email.`
+      },
+      twofa_email: {
+        subject: `${PROJECT_NAME} two-step verification code`,
+        html: `<p>Your two-step verification code is: <strong>${code}</strong></p><p>It expires in ${CODE_TTL_MINUTES} minutes. If you did not request this, ignore this email.</p>`,
+        text: `Your two-step verification code is: ${code}\nIt expires in ${CODE_TTL_MINUTES} minutes. If you did not request this, ignore this email.`
       }
     }
   }

@@ -24,6 +24,7 @@ export interface UserView {
   mustChangePassword: boolean
   totpEnabled: boolean
   passkeyCount: number
+  emailTwoFactorEnabled: boolean
   profileLocks: {
     displayNameLocked: boolean
   }
@@ -48,6 +49,7 @@ export async function buildUserView(
     mustChangePassword: user.must_change_password === 1,
     totpEnabled: Boolean(twoFactor?.totp_enabled),
     passkeyCount,
+    emailTwoFactorEnabled: twoFactor?.email_enabled === 1,
     profileLocks: await readProfileLockSettings(env)
   }
 }

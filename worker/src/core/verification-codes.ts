@@ -1,5 +1,5 @@
 /**
- * 邮件验证码的唯一服务（规格 §5.6 第 1 条）：注册邮箱验证与找回密码共用同一份
+ * 邮件验证码的唯一服务（规格 §5.6 第 1 条）：注册邮箱验证、找回密码与邮箱第二因子共用同一份
  * 规矩与同一张表 `email_verification_codes`，不各写一套。
  *
  * 6 位数字；库里只存 HMAC-SHA256（密钥 `SIGNING_SECRET`，见 core/auth.ts），
@@ -11,9 +11,11 @@ import { hmacSignatureHex, safeEqual } from "./auth"
 import { enforceRateLimit, type RateLimitVerdict } from "./rate-limit"
 import { getTablePrefix } from "../lib/table-prefix"
 import { emailCodesTable } from "../lib/tables"
+import { renderCodeEmail, type EmailLanguage } from "../locales/email"
+import { sendEmail, type SendEmailResult } from "../services/email"
 import type { Env } from "../types"
 
-export type CodePurpose = "register_verify" | "password_reset"
+export type CodePurpose = "register_verify" | "password_reset" | "twofa_email"
 
 export const CODE_TTL_SECONDS = 10 * 60
 export const CODE_MAX_ATTEMPTS = 5
@@ -172,4 +174,32 @@ export async function checkResendCooldown(
     },
     now
   )
+}
+
+/**
+ * 发放并发送验证码邮件：路由只调这一处，避免各写一套「发码 + 渲染 + 发信」。
+ * 返回发送结果供路由决定是否回 502；发送失败只记 purpose 与错误，绝不记码与正文。
+ */
+export async function sendVerificationCodeEmail(
+  env: Env,
+  input: { email: string; purpose: CodePurpose; language: EmailLanguage }
+): Promise<SendEmailResult> {
+  const { code } = await issueVerificationCode(env, {
+    email: input.email,
+    purpose: input.purpose
+  })
+  const content = renderCodeEmail(input.language, input.purpose, code)
+  const result = await sendEmail(env, {
+    to: input.email,
+    subject: content.subject,
+    html: content.html,
+    text: content.text
+  })
+  if (!result.success) {
+    console.error(
+      `Verification code email failed (${input.purpose}):`,
+      result.error ?? "unknown error"
+    )
+  }
+  return result
 }

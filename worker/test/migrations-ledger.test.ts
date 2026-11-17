@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest"
 import {
   BASELINE_MIGRATION,
+  EMAIL_2FA_MIGRATION,
   MUST_CHANGE_PASSWORD_MIGRATION,
   THEME_REMOVAL_MIGRATION,
   USERNAME_MIGRATION,
@@ -14,11 +15,13 @@ import {
 import { splitStatements } from "../src/lib/migrations-runner"
 import { ledgerName, runSetup } from "../src/lib/setup"
 import {
+  emailCodesTable,
   indexName,
   legacyMigrationsTable,
   migrationsTable,
   sessionsTable,
   settingsTable,
+  user2faTable,
   usersTable
 } from "../src/lib/tables"
 import { activePrefix, initializedContext, tableNames } from "./support/app"
@@ -33,7 +36,8 @@ describe("迁移定义", () => {
       USERNAME_MIGRATION,
       MUST_CHANGE_PASSWORD_MIGRATION,
       THEME_REMOVAL_MIGRATION,
-      USERNAME_REMOVAL_MIGRATION
+      USERNAME_REMOVAL_MIGRATION,
+      EMAIL_2FA_MIGRATION
     ])
     for (const migration of migrations) {
       const statements = splitStatements(migration.sql)
@@ -100,7 +104,8 @@ describe("账本命名", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -125,7 +130,8 @@ describe("旧账本改名承接", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -141,7 +147,8 @@ describe("旧账本改名承接", () => {
       USERNAME_MIGRATION,
       MUST_CHANGE_PASSWORD_MIGRATION,
       THEME_REMOVAL_MIGRATION,
-      USERNAME_REMOVAL_MIGRATION
+      USERNAME_REMOVAL_MIGRATION,
+      EMAIL_2FA_MIGRATION
     ])
   })
 
@@ -257,7 +264,8 @@ describe("schema_v5：删除 users.username", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -303,7 +311,8 @@ describe("schema_v5：删除 users.username", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -323,7 +332,8 @@ describe("schema_v5：删除 users.username", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "applied" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
     expect(columnNames(db, usersTable(prefix))).not.toContain("username")
@@ -370,7 +380,8 @@ describe("schema_v3：users.must_change_password", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "applied" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -404,7 +415,8 @@ describe("schema_v3：users.must_change_password", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "applied" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -457,7 +469,8 @@ describe("schema_v4：users.theme", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "applied" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
 
@@ -484,7 +497,8 @@ describe("schema_v4：users.theme", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "skipped" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
   })
@@ -504,9 +518,177 @@ describe("schema_v4：users.theme", () => {
         { name: USERNAME_MIGRATION, status: "skipped" },
         { name: MUST_CHANGE_PASSWORD_MIGRATION, status: "skipped" },
         { name: THEME_REMOVAL_MIGRATION, status: "applied" },
-        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" }
+        { name: USERNAME_REMOVAL_MIGRATION, status: "skipped" },
+        { name: EMAIL_2FA_MIGRATION, status: "skipped" }
       ])
     }
     expect(columnNames(db, usersTable(prefix))).not.toContain("theme")
+  })
+})
+
+describe("schema_v6：邮箱第二因子", () => {
+  function columnNames(db: SqliteD1, table: string): string[] {
+    return db.db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all<{ name: string }>()
+      .map((column) => column.name)
+  }
+
+  function hasIndex(db: SqliteD1, name: string): boolean {
+    return (
+      db.db
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?`
+        )
+        .get(name) !== undefined
+    )
+  }
+
+  it("全新库：加 email_enabled，CHECK 接受 twofa_email，两条索引都在", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    expect(columnNames(db, user2faTable(prefix))).toContain("email_enabled")
+    expect(hasIndex(db, indexName(prefix, "email_codes_lookup"))).toBe(true)
+    expect(hasIndex(db, indexName(prefix, "email_codes_expires"))).toBe(true)
+
+    const codes = emailCodesTable(prefix)
+    const now = 1_800_000_000
+    db.db
+      .prepare(
+        `INSERT INTO ${codes}
+          (email, purpose, code_hash, expires_at, attempts, created_at)
+         VALUES (?, 'twofa_email', 'hash', ?, 0, ?)`
+      )
+      .run("twofa@example.test", now + 600, now)
+    expect(() =>
+      db.db
+        .prepare(
+          `INSERT INTO ${codes}
+            (email, purpose, code_hash, expires_at, attempts, created_at)
+           VALUES (?, 'unknown_purpose', 'hash', ?, 0, ?)`
+        )
+        .run("twofa@example.test", now + 600, now)
+    ).toThrow(/CHECK/i)
+  })
+
+  it("存量库：重建保留旧码与 id，旧用途仍合法，二次 setup 幂等", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    const codes = emailCodesTable(prefix)
+    const twofa = user2faTable(prefix)
+    const now = 1_800_000_000
+
+    // 还原成「只跑过 schema_v5」的存量库：旧 CHECK 的 codes 表与两条旧码、
+    // user_2fa 没有 email_enabled、账本里没有 v6。
+    db.db.exec(`DROP TABLE ${codes}`)
+    db.db.exec(`CREATE TABLE ${codes} (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  email      TEXT NOT NULL,
+  purpose    TEXT NOT NULL CHECK (purpose IN ('register_verify', 'password_reset')),
+  code_hash  TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  used_at    INTEGER,
+  created_at INTEGER NOT NULL
+)`)
+    db.db
+      .prepare(
+        `INSERT INTO ${codes}
+          (email, purpose, code_hash, expires_at, attempts, created_at)
+         VALUES (?, 'register_verify', 'hash-r', ?, 0, ?)`
+      )
+      .run("legacy@example.test", now + 600, now)
+    db.db
+      .prepare(
+        `INSERT INTO ${codes}
+          (email, purpose, code_hash, expires_at, attempts, created_at)
+         VALUES (?, 'password_reset', 'hash-p', ?, 1, ?)`
+      )
+      .run("legacy@example.test", now + 600, now)
+    db.db.exec(`ALTER TABLE ${twofa} DROP COLUMN email_enabled`)
+    db.db
+      .prepare(`DELETE FROM ${migrationsTable(prefix)} WHERE name = ?`)
+      .run(EMAIL_2FA_MIGRATION)
+    expect(columnNames(db, twofa)).not.toContain("email_enabled")
+
+    const result = await runSetup(env)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.migrations[result.migrations.length - 1]).toEqual({
+        name: EMAIL_2FA_MIGRATION,
+        status: "applied"
+      })
+    }
+
+    expect(columnNames(db, twofa)).toContain("email_enabled")
+    db.db
+      .prepare(`INSERT INTO ${twofa} (user_id, updated_at) VALUES (?, ?)`)
+      .run(9001, new Date().toISOString())
+    expect(
+      db.db
+        .prepare(`SELECT email_enabled FROM ${twofa} WHERE user_id = ?`)
+        .get(9001)
+    ).toEqual({ email_enabled: 0 })
+
+    expect(
+      db.db
+        .prepare(
+          `SELECT id, purpose, code_hash, attempts FROM ${codes}
+            WHERE email = ? ORDER BY id`
+        )
+        .all("legacy@example.test")
+    ).toEqual([
+      { id: 1, purpose: "register_verify", code_hash: "hash-r", attempts: 0 },
+      { id: 2, purpose: "password_reset", code_hash: "hash-p", attempts: 1 }
+    ])
+    expect(hasIndex(db, indexName(prefix, "email_codes_lookup"))).toBe(true)
+    expect(hasIndex(db, indexName(prefix, "email_codes_expires"))).toBe(true)
+    db.db
+      .prepare(
+        `INSERT INTO ${codes}
+          (email, purpose, code_hash, expires_at, attempts, created_at)
+         VALUES (?, 'twofa_email', 'hash-t', ?, 0, ?)`
+      )
+      .run("legacy@example.test", now + 600, now)
+
+    const again = await runSetup(env)
+    expect(again.success).toBe(true)
+    if (again.success) {
+      expect(again.migrations[again.migrations.length - 1]).toEqual({
+        name: EMAIL_2FA_MIGRATION,
+        status: "skipped"
+      })
+    }
+  })
+
+  it("重建完成、账本未记的中断：重跑只补记录，不动存量码", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    const codes = emailCodesTable(prefix)
+    const now = 1_800_000_000
+    db.db
+      .prepare(
+        `INSERT INTO ${codes}
+          (email, purpose, code_hash, expires_at, attempts, created_at)
+         VALUES (?, 'twofa_email', 'hash-t', ?, 0, ?)`
+      )
+      .run("twofa@example.test", now + 600, now)
+    db.db
+      .prepare(`DELETE FROM ${migrationsTable(prefix)} WHERE name = ?`)
+      .run(EMAIL_2FA_MIGRATION)
+
+    const result = await runSetup(env)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.migrations[result.migrations.length - 1]).toEqual({
+        name: EMAIL_2FA_MIGRATION,
+        status: "applied"
+      })
+    }
+    expect(
+      db.db
+        .prepare(`SELECT purpose, code_hash FROM ${codes} WHERE email = ?`)
+        .get("twofa@example.test")
+    ).toEqual({ purpose: "twofa_email", code_hash: "hash-t" })
   })
 })
