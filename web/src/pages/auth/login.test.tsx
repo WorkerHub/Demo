@@ -20,7 +20,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
       passkeyLoginVerify: vi.fn(),
       verifyEmail: vi.fn(),
       resendEmail: vi.fn(),
-      logout: vi.fn()
+      logout: vi.fn(),
+      emailTwoFactorSend: vi.fn()
     },
     meApi: { ...actual.meApi, get: vi.fn(), update: vi.fn() }
   }
