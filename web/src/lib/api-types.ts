@@ -191,3 +191,21 @@ export interface AdminCreateUserResult {
   /** 系统生成的一次性初始密码，仅本次响应返回，之后任何接口不回显、不落明文库。 */
   temporaryPassword: string
 }
+
+/** POST /api/admin/users/:id/reset-password：管理员重置密码，返回新一次性密码。 */
+export interface AdminResetPasswordResult {
+  id: number
+  email: string
+  /** 系统生成的一次性初始密码，仅本次响应返回，之后任何接口不回显、不落明文库。 */
+  temporaryPassword: string
+}
+
+/** POST /api/admin/users/:id/role：变更角色（普通用户 ↔ 管理员）。 */
+export interface AdminChangeRoleInput {
+  role: UserRole
+}
+
+/** 停用 / 启用 / 变更角色 / 删除用户成功时的统一结果。 */
+export interface AdminUserActionResult {
+  success: true
+}
