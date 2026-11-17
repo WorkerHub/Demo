@@ -17,6 +17,7 @@
     "password": "Password",
     "newPassword": "New password",
     "currentPassword": "Current password",
+    "confirmPassword": "Confirm new password",
     "code": "Verification code",
     "codeSent": "Verification code sent",
     "codeExpires": "The code is valid for {{minutes}} minutes",
@@ -128,6 +129,7 @@
       "emailInvalid": "Invalid email format",
       "passwordRequired": "Enter your password",
       "passwordTooShort": "Password must be at least 8 characters",
+      "passwordMismatch": "Passwords do not match",
       "codeRequired": "Enter the verification code",
       "codeInvalid": "The code is 6 digits"
     }
@@ -203,7 +205,6 @@
     "preferences": {
       "language": "Interface language",
       "languageHint": "Applies immediately and is saved to your account.",
-      "theme": "Theme",
       "timezone": "Time zone",
       "saved": "Preferences saved"
     }
