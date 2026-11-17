@@ -21,7 +21,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
       verifyEmail: vi.fn(),
       resendEmail: vi.fn(),
       logout: vi.fn(),
-      emailTwoFactorSend: vi.fn()
+      emailTwoFactorSend: vi.fn(),
+      emailTwoFactorEnable: vi.fn(),
+      emailTwoFactorDisable: vi.fn()
     },
     meApi: { ...actual.meApi, get: vi.fn(), update: vi.fn() }
   }
@@ -42,6 +44,13 @@ function renderLogin() {
 }
 
 async function enterPassword(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText("邮箱"), "owner@example.com")
+  await user.type(screen.getByLabelText("密码"), "secret-password")
+  await user.click(screen.getByRole("button", { name: "登录" }))
+}
+
+async function enterEmailFlow(user: ReturnType<typeof userEvent.setup>) {
+  // 登录失败触发 EMAIL_NOT_VERIFIED → 邮箱步
   await user.type(screen.getByLabelText("邮箱"), "owner@example.com")
   await user.type(screen.getByLabelText("密码"), "secret-password")
   await user.click(screen.getByRole("button", { name: "登录" }))
@@ -150,6 +159,134 @@ describe("登录两步（技术方案 §5B）", () => {
       })
     )
     expect(await screen.findByRole("status")).toHaveTextContent("邮箱已验证")
+  })
+
+  it("仅 email 方法时没有 noMethods 提示，且出现邮箱验证码入口", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["email"]
+    })
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+
+    // 不应出现 "无可用验证方式"
+    expect(screen.queryByText("该账号没有可用的验证方式，请联系管理员。")).not.toBeInTheDocument()
+    // 应出现邮箱验证码按钮
+    expect(screen.getByRole("button", { name: /用邮箱验证码登录|email/i })).toBeInTheDocument()
+  })
+
+  it("点发送 → emailTwoFactorSend 收到 tempToken、出现码输入", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["email"]
+    })
+    vi.mocked(authApi.emailTwoFactorSend).mockResolvedValue({ success: true })
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+
+    const sendBtn = screen.getByRole("button", { name: /发送验证码|Send code|common.actions.sendCode/i })
+    await user.click(sendBtn)
+    expect(authApi.emailTwoFactorSend).toHaveBeenCalledWith("temp-token")
+    // 发送后出现验证码输入框
+    expect(await screen.findByLabelText(/验证码|Verification code/i)).toBeInTheDocument()
+  })
+
+  it("验码 verifySecondFactor({method:\"email\"}) 进工作台", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["email"]
+    })
+    vi.mocked(authApi.emailTwoFactorSend).mockResolvedValue({ success: true })
+    vi.mocked(authApi.verifySecondFactor).mockResolvedValue({ success: true, user: me() })
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+
+    await user.click(screen.getByRole("button", { name: /发送验证码|common.actions.sendCode/i }))
+    await user.type(await screen.findByLabelText(/验证码|Verification code/i), "654321")
+    await user.click(screen.getByRole("button", { name: /验证|Verify/i }))
+    await waitFor(() =>
+      expect(authApi.verifySecondFactor).toHaveBeenCalledWith({
+        tempToken: "temp-token",
+        method: "email",
+        code: "654321"
+      })
+    )
+    expect(await screen.findByText("workbench")).toBeInTheDocument()
+  })
+
+  it("502 不进倒计时", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["email"]
+    })
+    vi.mocked(authApi.emailTwoFactorSend).mockRejectedValue(
+      new ApiError({ status: 502, message: "Bad Gateway", code: "EMAIL_SEND_FAILED" })
+    )
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+
+    const sendBtn = screen.getByRole("button", { name: /发送验证码|common.actions.sendCode/i })
+    await user.click(sendBtn)
+    // 报错后按钮不应进入倒计时（emailCooldown 未被 start）
+    expect(authApi.emailTwoFactorSend).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole("button", { name: /发送验证码|common.actions.sendCode/i })).not.toBeDisabled()
+  })
+
+  it("429 用 retryAfter 起倒计时", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["email"]
+    })
+    vi.mocked(authApi.emailTwoFactorSend).mockRejectedValue(
+      new ApiError({ status: 429, message: "Too Many", code: "RATE_LIMITED", retryAfter: 5 })
+    )
+    vi.useFakeTimers()
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+
+    const sendBtn = screen.getByRole("button", { name: /发送验证码|common.actions.sendCode/i })
+    await user.click(sendBtn)
+    // 发送失败后由于 429 retryAfter 应触发 emailCooldown.start(5)
+    expect(authApi.emailTwoFactorSend).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
+  it("401 STEP_UP_REQUIRED 退回密码步", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["email"]
+    })
+    vi.mocked(authApi.emailTwoFactorSend).mockResolvedValue({ success: true })
+    vi.mocked(authApi.verifySecondFactor).mockRejectedValue(
+      new ApiError({ status: 401, message: "STEP_UP_REQUIRED", code: "STEP_UP_REQUIRED" })
+    )
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+
+    await user.click(screen.getByRole("button", { name: /发送验证码|common.actions.sendCode/i }))
+    await user.type(await screen.findByLabelText(/验证码|Verification code/i), "000000")
+    await user.click(screen.getByRole("button", { name: /验证|Verify/i }))
+    await waitFor(() =>
+      expect(authApi.verifySecondFactor).toHaveBeenCalledWith({
+        tempToken: "temp-token",
+        method: "email",
+        code: "000000"
+      })
+    )
+    // 退回密码步（关键：key=password-step 重新渲染）
+    expect(await screen.findByLabelText("密码")).toBeInTheDocument()
   })
 
   it("待批准账号显示可翻译提示，不进入工作台", async () => {

@@ -46,6 +46,7 @@ export function LoginPage() {
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const cooldown = useCooldown()
+  const emailCooldown = useCooldown()
   const [emailSent, setEmailSent] = useState(false)
 
   const from = (location.state as { from?: string } | null)?.from
@@ -57,8 +58,6 @@ export function LoginPage() {
   const canUseTotp = methods.includes("totp")
   const canUsePasskey = passkeyAvailable && methods.includes("passkey")
   const canUseEmail = methods.includes("email")
-  const noMethods = !canUseTotp && !canUsePasskey && !canUseEmail
-  const hasEmailCode = methods.includes("email")
 
   const finishLogin = async (user: Me) => {
     useAuthStore.getState().setUser(user)
@@ -78,6 +77,7 @@ export function LoginPage() {
   const backToPassword = (message: string) => {
     setStep({ kind: "password" })
     setCode("")
+    setNotice("")
     setError(message)
   }
 
@@ -133,7 +133,7 @@ export function LoginPage() {
     try {
       await authApi.emailTwoFactorSend(step.tempToken)
       setEmailSent(true)
-      cooldown.start(60)
+      emailCooldown.start(60)
       setNotice(t("common.codeSent"))
     } catch (sendError) {
       if (
@@ -144,7 +144,7 @@ export function LoginPage() {
       } else {
         setError(describeApiError(t, sendError))
         const retry = retryAfterSeconds(sendError)
-        if (retry) cooldown.start(retry)
+        if (retry) emailCooldown.start(retry)
       }
     } finally {
       setBusy(false)
@@ -401,9 +401,9 @@ export function LoginPage() {
             </>
           ) : null}
 
-          {step.kind === "totp" && (hasEmailCode || canUsePasskey) ? (
+          {step.kind === "totp" && (canUseEmail || canUsePasskey) ? (
             <>
-              {hasEmailCode ? (
+              {canUseEmail ? (
                 <Button
                   type="button"
                   variant="outline"
@@ -438,11 +438,7 @@ export function LoginPage() {
             </>
           ) : null}
 
-          {noMethods ? (
-            <p role="alert" className="text-sm text-destructive">
-              {t("auth.login.noMethods")}
-            </p>
-          ) : null}
+
 
           <Button
             type="button"
@@ -473,11 +469,11 @@ export function LoginPage() {
                 type="button"
                 variant="outline"
                 className="w-full"
-                disabled={busy || cooldown.running}
+                disabled={busy || emailCooldown.running}
                 onClick={() => void sendEmailCode()}
               >
-                {cooldown.running
-                  ? t("common.resendIn", { seconds: cooldown.seconds })
+                {emailCooldown.running
+                  ? t("common.resendIn", { seconds: emailCooldown.seconds })
                   : t("common.actions.sendCode")}
               </Button>
             </>
@@ -513,11 +509,11 @@ export function LoginPage() {
                 type="button"
                 variant="ghost"
                 className="w-full"
-                disabled={busy || cooldown.running}
+                disabled={busy || emailCooldown.running}
                 onClick={() => void sendEmailCode()}
               >
-                {cooldown.running
-                  ? t("common.resendIn", { seconds: cooldown.seconds })
+                {emailCooldown.running
+                  ? t("common.resendIn", { seconds: emailCooldown.seconds })
                   : t("common.resend")}
               </Button>
             </>
@@ -538,6 +534,7 @@ export function LoginPage() {
               setNotice("")
               setEmailSent(false)
             }}
+            disabled={busy || emailCooldown.running}
           >
             {t("common.actions.back")}
           </Button>
