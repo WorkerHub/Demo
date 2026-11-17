@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import {
   createMemoryRouter,
@@ -9,6 +9,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { routes } from "@/App"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ApiError } from "@/lib/api"
+import {
+  SIDEBAR_OPEN_STORAGE_KEY,
+  SIDEBAR_WIDTH_STORAGE_KEY
+} from "@/lib/sidebar"
 import { me, publicInfo, setupState } from "@/test/fixtures"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -149,6 +153,10 @@ describe("路由与根门", () => {
         .getAllByRole("link")
         .map((link) => link.textContent)
     ).toEqual(["工作台"])
+    expect(within(nav).getByRole("link", { name: "工作台" })).toHaveAttribute(
+      "data-active",
+      "true"
+    )
   })
 
   it("账号菜单里的个人资料跳到独立页", async () => {
@@ -210,5 +218,75 @@ describe("路由与根门", () => {
     expect(
       screen.getByText(/Template · \d+\.\d+\.\d+ · [0-9a-f]+\+build\.\d+/)
     ).toBeInTheDocument()
+  })
+
+  it("侧栏宽度与收起状态从 localStorage 恢复，展开后写回", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+    localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, "320")
+    localStorage.setItem(SIDEBAR_OPEN_STORAGE_KEY, "false")
+
+    const view = renderAt(routes, "/workbench")
+    await screen.findByRole("heading", { name: "工作台" })
+
+    const sidebar = view.container.querySelector('[data-slot="sidebar"]')
+    expect(sidebar).toHaveAttribute("data-state", "collapsed")
+    expect(sidebar).toHaveAttribute("data-collapsible", "icon")
+
+    const wrapper = view.container.querySelector(
+      '[data-slot="sidebar-wrapper"]'
+    ) as HTMLElement
+    expect(wrapper.style.getPropertyValue("--sidebar-width")).toBe("320px")
+
+    await userEvent.click(screen.getByRole("button", { name: "展开侧栏" }))
+
+    expect(sidebar).toHaveAttribute("data-state", "expanded")
+    expect(localStorage.getItem(SIDEBAR_OPEN_STORAGE_KEY)).toBe("true")
+    // 收起 / 展开不覆盖用户调好的宽度。
+    expect(localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)).toBe("320")
+  })
+
+  it("拖动右缘改宽、夹到上限，拖动后的尾随 click 不收起", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    const view = renderAt(routes, "/workbench")
+    await screen.findByRole("heading", { name: "工作台" })
+
+    const wrapper = view.container.querySelector(
+      '[data-slot="sidebar-wrapper"]'
+    ) as HTMLElement
+    const sidebar = view.container.querySelector('[data-slot="sidebar"]')
+    const rail = screen.getByRole("button", { name: "切换侧栏" })
+
+    fireEvent.pointerDown(rail, { pointerId: 1, button: 0, clientX: 500 })
+    fireEvent.pointerMove(rail, { pointerId: 1, clientX: 560 })
+    expect(wrapper.style.getPropertyValue("--sidebar-width")).toBe("300px")
+    expect(wrapper).toHaveAttribute("data-resizing", "true")
+
+    // 越过上限夹到 360，松手才落盘。
+    fireEvent.pointerMove(rail, { pointerId: 1, clientX: 900 })
+    expect(wrapper.style.getPropertyValue("--sidebar-width")).toBe("360px")
+    expect(localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)).toBeNull()
+
+    fireEvent.pointerUp(rail, { pointerId: 1, clientX: 900 })
+    expect(wrapper).not.toHaveAttribute("data-resizing")
+    expect(localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)).toBe("360")
+
+    // 拖动过：尾随 click 被吞掉，侧栏保持展开。
+    fireEvent.click(rail)
+    expect(sidebar).toHaveAttribute("data-state", "expanded")
+
+    // 原地点击（位移 ≤ 3px）仍走 SidebarRail 原生切换。
+    fireEvent.pointerDown(rail, { pointerId: 2, button: 0, clientX: 500 })
+    fireEvent.pointerUp(rail, { pointerId: 2, clientX: 501 })
+    fireEvent.click(rail)
+    expect(sidebar).toHaveAttribute("data-state", "collapsed")
+    expect(localStorage.getItem(SIDEBAR_OPEN_STORAGE_KEY)).toBe("false")
+    expect(wrapper.style.getPropertyValue("--sidebar-width")).toBe("360px")
   })
 })

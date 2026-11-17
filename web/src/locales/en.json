@@ -173,6 +173,11 @@
     },
     "menu": "Menu",
     "account": "Account",
+    "sidebar": {
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar",
+      "toggle": "Toggle sidebar"
+    },
     "logout": "Sign out"
   },
   "settings": {
