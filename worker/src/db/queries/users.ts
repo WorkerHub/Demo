@@ -5,7 +5,13 @@
  * admin + active + 已验证，之后才按开关决定待批准/待验证。这样两个并发首注册
  * 不会各建一个管理员（SQLite 在一条语句里判 `NOT EXISTS`）。
  */
-import { emailCodesTable, usersTable } from "../../lib/tables"
+import {
+  emailCodesTable,
+  passkeysTable,
+  sessionsTable,
+  user2faTable,
+  usersTable
+} from "../../lib/tables"
 
 export type UserStatus = "pending" | "active" | "disabled"
 export type UserRole = "admin" | "user"
@@ -304,4 +310,45 @@ export async function insertAdminCreatedUser(
   const user = await findUserByEmail(db, prefix, input.email)
   if (!user) throw new Error("admin-created user row missing after insert")
   return user
+}
+
+/**
+ * 「能登录的管理员」数量：`role = 'admin' AND status = 'active'`。
+ * 护栏（LAST_ADMIN）的口径：删除/停用/降级命中最后一个可登录管理员时拒绝。
+ */
+export async function countActiveAdmins(
+  db: D1Database,
+  prefix: string
+): Promise<number> {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) AS total FROM ${usersTable(prefix)}
+        WHERE role = 'admin' AND status = 'active'`
+    )
+    .first<{ total: number }>()
+  return Number(row?.total ?? 0)
+}
+
+/**
+ * 硬删用户：连同 sessions、user_2fa、passkey_credentials 一并清（规格定版口径，
+ * 不碰 email_verification_codes——验证码按过期时间自然失效）。
+ * 调用方先确认护栏（自删 403 / 最后管理员 409）再调用。
+ */
+export async function deleteUser(
+  db: D1Database,
+  prefix: string,
+  id: number
+): Promise<void> {
+  await db.batch([
+    db
+      .prepare(`DELETE FROM ${sessionsTable(prefix)} WHERE user_id = ?`)
+      .bind(id),
+    db
+      .prepare(`DELETE FROM ${user2faTable(prefix)} WHERE user_id = ?`)
+      .bind(id),
+    db
+      .prepare(`DELETE FROM ${passkeysTable(prefix)} WHERE user_id = ?`)
+      .bind(id),
+    db.prepare(`DELETE FROM ${usersTable(prefix)} WHERE id = ?`).bind(id)
+  ])
 }
