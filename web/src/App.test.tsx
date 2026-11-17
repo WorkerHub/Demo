@@ -283,6 +283,7 @@ describe("路由与根门", () => {
     ) as HTMLElement
     const sidebar = view.container.querySelector('[data-slot="sidebar"]')
     const rail = screen.getByRole("button", { name: "切换侧栏" })
+    expect(rail).toHaveClass("touch-none")
 
     fireEvent.pointerDown(rail, { pointerId: 1, button: 0, clientX: 500 })
     fireEvent.pointerMove(rail, { pointerId: 1, clientX: 560 })
@@ -309,5 +310,59 @@ describe("路由与根门", () => {
     expect(sidebar).toHaveAttribute("data-state", "collapsed")
     expect(localStorage.getItem(SIDEBAR_OPEN_STORAGE_KEY)).toBe("false")
     expect(wrapper.style.getPropertyValue("--sidebar-width")).toBe("360px")
+  })
+
+  it("收起态顶部只留站点标，站名转 sr-only", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+    localStorage.setItem(SIDEBAR_OPEN_STORAGE_KEY, "false")
+
+    const view = renderAt(routes, "/workbench")
+    await screen.findByRole("heading", { name: "工作台" })
+
+    const sidebar = view.container.querySelector('[data-slot="sidebar"]')
+    expect(sidebar).toHaveAttribute("data-state", "collapsed")
+
+    const brand = screen.getByRole("link", { name: "Template" })
+    expect(brand.className).not.toContain(
+      "group-data-[collapsible=icon]:hidden"
+    )
+    expect(brand.querySelector("svg")).not.toBeNull()
+    expect(within(brand).getByText("Template").className).toContain(
+      "group-data-[collapsible=icon]:sr-only"
+    )
+  })
+
+  it("收起/展开按钮只留图标，与版本文字同排靠右，悬停出两态提示", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    renderAt(routes, "/workbench")
+    await screen.findByRole("heading", { name: "工作台" })
+
+    const collapse = screen.getByRole("button", { name: "收起侧栏" })
+    expect(collapse.textContent).toBe("")
+
+    const version = screen.getByText(
+      /Template · \d+\.\d+\.\d+ · [0-9a-f]+\+build\.\d+/
+    )
+    expect(version.parentElement).toBe(collapse.parentElement)
+    expect(collapse.parentElement?.className).toContain("justify-between")
+
+    const user = accountUser()
+    await user.hover(collapse)
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("收起侧栏")
+    await user.unhover(collapse)
+
+    await user.click(collapse)
+    const expand = screen.getByRole("button", { name: "展开侧栏" })
+    // 点击后指针仍停在按钮上，先移开再进入，确保触发新的 pointerenter。
+    await user.unhover(expand)
+    await user.hover(expand)
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("展开侧栏")
   })
 })

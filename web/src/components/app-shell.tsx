@@ -48,6 +48,11 @@ import {
   SidebarProvider,
   SidebarRail
 } from "@/components/ui/sidebar"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { UserAvatar } from "@/components/user-avatar"
 import { titleKeyFor } from "@/hooks/use-page-title"
 import { buildVersionLabel } from "@/lib/build-info"
@@ -228,10 +233,12 @@ export function AppShell() {
         <SidebarHeader className="p-0">
           <NavLink
             to="/workbench"
-            className="flex h-14 items-center gap-2 px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+            className="flex h-14 items-center gap-2 px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
             <SiteLogo />
-            {name}
+            <span className="truncate group-data-[collapsible=icon]:sr-only">
+              {name}
+            </span>
           </NavLink>
         </SidebarHeader>
 
@@ -260,21 +267,30 @@ export function AppShell() {
         </SidebarContent>
 
         <SidebarFooter className="border-t border-sidebar-border">
-          <div className="px-2 py-1 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
-            {buildVersionLabel(name || undefined)}
+          <div className="flex items-center justify-between gap-2">
+            <div className="px-2 py-1 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
+              {buildVersionLabel(name || undefined)}
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarMenuButton
+                  type="button"
+                  aria-label={t(toggleLabelKey)}
+                  onClick={() => changeSidebarOpen(!sidebarOpen)}
+                  className="size-8! shrink-0"
+                >
+                  {sidebarOpen ? <PanelLeftCloseIcon /> : <PanelLeftOpenIcon />}
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent side="right" align="center">
+                {t(toggleLabelKey)}
+              </TooltipContent>
+            </Tooltip>
           </div>
-          <SidebarMenuButton
-            type="button"
-            aria-label={t(toggleLabelKey)}
-            tooltip={t(toggleLabelKey)}
-            onClick={() => changeSidebarOpen(!sidebarOpen)}
-          >
-            {sidebarOpen ? <PanelLeftCloseIcon /> : <PanelLeftOpenIcon />}
-            <span>{t(toggleLabelKey)}</span>
-          </SidebarMenuButton>
         </SidebarFooter>
 
         <SidebarRail
+          className="touch-none"
           aria-label={t("workbench.sidebar.toggle")}
           title={t("workbench.sidebar.toggle")}
           onPointerDown={startResize}
