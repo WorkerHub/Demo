@@ -17,6 +17,7 @@
     "password": "密码",
     "newPassword": "新密码",
     "currentPassword": "当前密码",
+    "confirmPassword": "确认新密码",
     "code": "验证码",
     "codeSent": "验证码已发送",
     "codeExpires": "验证码 {{minutes}} 分钟内有效",
@@ -128,6 +129,7 @@
       "emailInvalid": "邮箱格式不正确",
       "passwordRequired": "请输入密码",
       "passwordTooShort": "密码至少 8 位",
+      "passwordMismatch": "两次输入的密码不一致",
       "codeRequired": "请输入验证码",
       "codeInvalid": "验证码为 6 位数字"
     }
@@ -203,7 +205,6 @@
     "preferences": {
       "language": "界面语言",
       "languageHint": "切换后立即生效，并保存到账号。",
-      "theme": "主题",
       "timezone": "时区",
       "saved": "偏好已保存"
     }
