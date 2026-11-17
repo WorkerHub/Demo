@@ -1,13 +1,13 @@
 "use client"
 
-import { Toaster as Sonner, type ToasterProps } from "sonner"
 import {
   CircleCheckIcon,
   InfoIcon,
-  TriangleAlertIcon,
+  Loader2Icon,
   OctagonXIcon,
-  Loader2Icon
+  TriangleAlertIcon
 } from "lucide-react"
+import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { useResolvedTheme } from "@/hooks/use-theme"
 
 const Toaster = ({ ...props }: ToasterProps) => {

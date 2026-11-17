@@ -2,9 +2,9 @@ import { Loader2Icon } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Navigate, Outlet, useLocation } from "react-router"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { useAuthStore } from "@/stores/auth"
 import { useSetupStore } from "@/stores/setup"
-import { usePageTitle } from "@/hooks/use-page-title"
 import { useSiteStore } from "@/stores/site"
 
 function LoadingScreen() {

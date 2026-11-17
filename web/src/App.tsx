@@ -3,16 +3,16 @@ import {
   type RouteObject,
   RouterProvider
 } from "react-router"
-import { Toaster } from "@/components/ui/sonner"
 import { AppShell } from "@/components/app-shell"
 import {
-  RootGate,
   GuestOnly,
   RequireAdmin,
   RequireAuth,
-  RequirePasswordChanged
+  RequirePasswordChanged,
+  RootGate
 } from "@/components/guards"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import { AboutPage } from "@/pages/about"
 import { AdminPage } from "@/pages/admin/admin-page"
 import { ForgotPasswordPage } from "@/pages/auth/forgot-password"

@@ -29,8 +29,8 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet"
 import { UserAvatar } from "@/components/user-avatar"
-import { buildVersionLabel } from "@/lib/build-info"
 import { titleKeyFor } from "@/hooks/use-page-title"
+import { buildVersionLabel } from "@/lib/build-info"
 import { accountPrimaryLabel } from "@/lib/user-identity"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"

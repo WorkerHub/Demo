@@ -2,8 +2,8 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import {
   createMemoryRouter,
-  RouterProvider,
-  type RouteObject
+  type RouteObject,
+  RouterProvider
 } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { routes } from "@/App"

@@ -467,17 +467,20 @@ export function LoginPage() {
           </p>
 
           {!emailSent ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={busy || cooldown.running}
-              onClick={() => void sendEmailCode()}
-            >
-              {cooldown.running
-                ? t("common.resendIn", { seconds: cooldown.seconds })
-                : t("common.actions.sendCode")}
-            </Button>
+            <>
+              {message(error)}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={busy || cooldown.running}
+                onClick={() => void sendEmailCode()}
+              >
+                {cooldown.running
+                  ? t("common.resendIn", { seconds: cooldown.seconds })
+                  : t("common.actions.sendCode")}
+              </Button>
+            </>
           ) : (
             <>
               <p role="status" className="text-sm text-muted-foreground">

@@ -1,6 +1,6 @@
 import { create } from "zustand"
-import type { PublicInfo } from "@/lib/api-types"
 import { publicApi } from "@/lib/api"
+import type { PublicInfo } from "@/lib/api-types"
 
 /**
  * 公开站点信息（`GET /api/public`）：项目名、一句话说明、仓库地址、档位与两个

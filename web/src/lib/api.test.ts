@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { adminApi, ApiError, authApi, meApi } from "@/lib/api"
+import { ApiError, adminApi, authApi, meApi } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { me } from "@/test/fixtures"
 

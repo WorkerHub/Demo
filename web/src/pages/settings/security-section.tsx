@@ -12,7 +12,7 @@ import { useCooldown } from "@/hooks/use-cooldown"
 import { currentLanguage } from "@/i18n"
 import { authApi, meApi } from "@/lib/api"
 import { describeApiError, retryAfterSeconds } from "@/lib/api-errors"
-import type { Me, PasskeySummary } from "@/lib/api-types"
+import type { PasskeySummary } from "@/lib/api-types"
 import { intlLocale } from "@/lib/language"
 import {
   isWebAuthnCancelled,

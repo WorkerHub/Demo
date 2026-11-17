@@ -1,11 +1,11 @@
 import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { me } from "@/test/fixtures"
+import { ApiError, meApi } from "@/lib/api"
+import type { Me } from "@/lib/api-types"
 import { ProfilePage } from "@/pages/profile"
 import { useAuthStore } from "@/stores/auth"
-import type { Me } from "@/lib/api-types"
-import { ApiError, meApi } from "@/lib/api"
+import { me } from "@/test/fixtures"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()

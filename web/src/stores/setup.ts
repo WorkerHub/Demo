@@ -1,6 +1,6 @@
 import { create } from "zustand"
-import type { SetupState } from "@/lib/api-types"
 import { setupApi } from "@/lib/api"
+import type { SetupState } from "@/lib/api-types"
 
 /**
  * setup 状态（`GET /api/setup/state`）。RootGate 与 /setup 页共用这一份，
