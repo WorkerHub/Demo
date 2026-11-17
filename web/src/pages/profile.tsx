@@ -54,27 +54,69 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      {editing ? (
-        <form className="space-y-4" onSubmit={save}>
-          <div className="space-y-1.5">
-            <Label htmlFor="profile-display-name">
-              {t("profile.displayName")}
-            </Label>
-            <Input
-              id="profile-display-name"
-              name="display-name"
-              autoComplete="name"
-              value={displayName}
-              onChange={(event) => setDisplayName(event.target.value)}
-            />
+      <form className="space-y-4" onSubmit={save}>
+        {editing ? null : (
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={locked}
+              onClick={startEdit}
+            >
+              <PencilIcon />
+              {t("common.actions.edit")}
+            </Button>
           </div>
+        )}
 
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          ) : null}
+        <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
+          <dt className="text-muted-foreground">
+            {editing ? (
+              <Label
+                htmlFor="profile-display-name"
+                className="text-muted-foreground"
+              >
+                {t("profile.displayName")}
+              </Label>
+            ) : (
+              t("profile.displayName")
+            )}
+          </dt>
+          <dd>
+            {editing ? (
+              <Input
+                id="profile-display-name"
+                name="display-name"
+                autoComplete="name"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+            ) : (
+              user.displayName
+            )}
+          </dd>
 
+          <dt className="text-muted-foreground">{t("profile.email")}</dt>
+          <dd className="flex items-center gap-2">
+            <span className="break-all">{user.email}</span>
+            <Badge variant={user.emailVerified ? "secondary" : "outline"}>
+              {user.emailVerified
+                ? t("profile.emailVerified")
+                : t("profile.emailUnverified")}
+            </Badge>
+          </dd>
+
+          <dt className="text-muted-foreground">{t("profile.role")}</dt>
+          <dd>{t(`common.role.${user.role}`)}</dd>
+        </dl>
+
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+
+        {editing ? (
           <div className="flex gap-2">
             <Button type="submit" disabled={busy}>
               {busy ? t("common.actions.saving") : t("common.actions.save")}
@@ -88,43 +130,8 @@ export function ProfilePage() {
               {t("common.actions.cancel")}
             </Button>
           </div>
-        </form>
-      ) : (
-        <section className="space-y-4">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={locked}
-              onClick={startEdit}
-            >
-              <PencilIcon />
-              {t("common.actions.edit")}
-            </Button>
-          </div>
-          <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
-            <dt className="text-muted-foreground">
-              {t("profile.displayName")}
-            </dt>
-            <dd>{user.displayName}</dd>
-          </dl>
-        </section>
-      )}
-
-      <dl className="grid gap-3 text-sm sm:grid-cols-[8rem_1fr]">
-        <dt className="text-muted-foreground">{t("profile.email")}</dt>
-        <dd className="flex items-center gap-2">
-          <span className="break-all">{user.email}</span>
-          <Badge variant={user.emailVerified ? "secondary" : "outline"}>
-            {user.emailVerified
-              ? t("profile.emailVerified")
-              : t("profile.emailUnverified")}
-          </Badge>
-        </dd>
-
-        <dt className="text-muted-foreground">{t("profile.role")}</dt>
-        <dd>{t(`common.role.${user.role}`)}</dd>
-      </dl>
+        ) : null}
+      </form>
     </div>
   )
 }

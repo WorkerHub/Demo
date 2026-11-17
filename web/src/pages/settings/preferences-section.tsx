@@ -2,7 +2,6 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { LanguageSegmented } from "@/components/language-toggle"
-import { ThemeSegmented } from "@/components/theme-toggle"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -106,11 +105,6 @@ export function PreferencesSection() {
         <p className="text-xs text-muted-foreground">
           {t("settings.preferences.languageHint")}
         </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label>{t("settings.preferences.theme")}</Label>
-        <ThemeSegmented />
       </div>
 
       <div className="space-y-2">

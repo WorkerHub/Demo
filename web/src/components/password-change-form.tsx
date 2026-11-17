@@ -24,6 +24,7 @@ export function PasswordChangeForm({
   const { t } = useTranslation()
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
@@ -33,12 +34,17 @@ export function PasswordChangeForm({
       setError(t("auth.validation.passwordTooShort"))
       return
     }
+    if (newPassword !== confirmPassword) {
+      setError(t("auth.validation.passwordMismatch"))
+      return
+    }
     setBusy(true)
     setError("")
     try {
       await meApi.changePassword({ currentPassword, newPassword })
       setCurrentPassword("")
       setNewPassword("")
+      setConfirmPassword("")
       const user = useAuthStore.getState().user
       if (user?.mustChangePassword) {
         useAuthStore.getState().setUser({ ...user, mustChangePassword: false })
@@ -78,6 +84,19 @@ export function PasswordChangeForm({
           autoComplete="new-password"
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${idPrefix}-confirm-password`}>
+          {t("common.confirmNewPassword")}
+        </Label>
+        <Input
+          id={`${idPrefix}-confirm-password`}
+          name="confirm-password"
+          type="password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
         />
       </div>
       {error ? (

@@ -16,13 +16,6 @@ export type ResolvedTheme = "light" | "dark"
 /** zustand persist 的存储键；web/index.html 的内联脚本也读这个键。 */
 export const THEME_STORAGE_KEY = "app-theme"
 
-/** 三档的可选值与其文案 key：文案在 locales 的 `common.theme.*`。 */
-export const THEME_OPTIONS: { value: Theme; labelKey: string }[] = [
-  { value: "auto", labelKey: "common.theme.auto" },
-  { value: "light", labelKey: "common.theme.light" },
-  { value: "dark", labelKey: "common.theme.dark" }
-]
-
 export function isTheme(value: unknown): value is Theme {
   return value === "auto" || value === "light" || value === "dark"
 }

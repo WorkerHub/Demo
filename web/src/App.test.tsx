@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { routes } from "@/App"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ApiError } from "@/lib/api"
+import { useThemeStore } from "@/stores/theme"
 import { me, publicInfo, setupState } from "@/test/fixtures"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -210,5 +211,28 @@ describe("路由与根门", () => {
     expect(
       screen.getByText(/Template · \d+\.\d+\.\d+ · [0-9a-f]+\+build\.\d+/)
     ).toBeInTheDocument()
+  })
+
+  it("顶栏主题按钮仍能循环切换并只写本机", async () => {
+    vi.mocked(setupApi.state).mockResolvedValue(
+      setupState({ ownerExists: true, enabled: false })
+    )
+    vi.mocked(meApi.get).mockResolvedValue(me())
+
+    const user = accountUser()
+    renderAt(routes, "/workbench")
+
+    await user.click(
+      await screen.findByRole("button", { name: "切换主题，当前 自动" })
+    )
+    expect(useThemeStore.getState().theme).toBe("light")
+    expect(
+      JSON.parse(localStorage.getItem("app-theme") ?? "{}").state?.theme
+    ).toBe("light")
+
+    await user.click(
+      screen.getByRole("button", { name: "切换主题，当前 亮色" })
+    )
+    expect(useThemeStore.getState().theme).toBe("dark")
   })
 })

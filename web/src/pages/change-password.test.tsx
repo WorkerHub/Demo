@@ -50,6 +50,7 @@ describe("首登强制改密页", () => {
 
     await user.type(screen.getByLabelText("当前密码"), CURRENT)
     await user.type(screen.getByLabelText("新密码"), NEXT)
+    await user.type(screen.getByLabelText("确认新密码"), NEXT)
     await user.click(screen.getByRole("button", { name: "更新密码" }))
 
     await waitFor(() =>
@@ -74,6 +75,34 @@ describe("首登强制改密页", () => {
     expect(meApi.changePassword).not.toHaveBeenCalled()
   })
 
+  it("两次新密码不一致时提示，不发请求", async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(screen.getByLabelText("当前密码"), CURRENT)
+    await user.type(screen.getByLabelText("新密码"), NEXT)
+    await user.type(screen.getByLabelText("确认新密码"), "different-password")
+    await user.click(screen.getByRole("button", { name: "更新密码" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "两次输入的新密码不一致"
+    )
+    expect(meApi.changePassword).not.toHaveBeenCalled()
+  })
+
+  it("长度不足优先于不一致报错", async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(screen.getByLabelText("当前密码"), CURRENT)
+    await user.type(screen.getByLabelText("新密码"), "short")
+    await user.type(screen.getByLabelText("确认新密码"), "different")
+    await user.click(screen.getByRole("button", { name: "更新密码" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("密码至少 8 位")
+    expect(meApi.changePassword).not.toHaveBeenCalled()
+  })
+
   it("当前密码错误时留在页面并显示提示", async () => {
     vi.mocked(meApi.changePassword).mockRejectedValue(
       new ApiError({
@@ -87,6 +116,7 @@ describe("首登强制改密页", () => {
 
     await user.type(screen.getByLabelText("当前密码"), "wrong-password")
     await user.type(screen.getByLabelText("新密码"), NEXT)
+    await user.type(screen.getByLabelText("确认新密码"), NEXT)
     await user.click(screen.getByRole("button", { name: "更新密码" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent("当前密码不正确")
@@ -107,6 +137,7 @@ describe("首登强制改密页", () => {
 
     await user.type(screen.getByLabelText("当前密码"), CURRENT)
     await user.type(screen.getByLabelText("新密码"), NEXT)
+    await user.type(screen.getByLabelText("确认新密码"), NEXT)
     await user.click(screen.getByRole("button", { name: "更新密码" }))
 
     expect(await screen.findByText("settings")).toBeInTheDocument()
