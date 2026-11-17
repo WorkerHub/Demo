@@ -3,11 +3,19 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   MenuIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   SettingsIcon,
   ShieldCheckIcon,
   UserIcon
 } from "lucide-react"
-import { useState } from "react"
+import {
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  useRef,
+  useState
+} from "react"
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router"
 import { LanguageCycleButton } from "@/components/language-toggle"
@@ -28,8 +36,26 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail
+} from "@/components/ui/sidebar"
 import { UserAvatar } from "@/components/user-avatar"
 import { buildVersionLabel } from "@/lib/build-info"
+import {
+  clampSidebarWidth,
+  readSidebarOpen,
+  readSidebarWidth,
+  writeSidebarOpen,
+  writeSidebarWidth
+} from "@/lib/sidebar"
 import { titleKeyFor } from "@/hooks/use-page-title"
 import { accountPrimaryLabel } from "@/lib/user-identity"
 import { useAuthStore } from "@/stores/auth"
@@ -55,6 +81,13 @@ const ACCOUNT_ITEMS = [
   { to: "/settings", labelKey: "workbench.nav.settings", icon: SettingsIcon },
   { to: "/about", labelKey: "workbench.nav.about", icon: InfoIcon }
 ] as const
+
+/** 位移不超过这个值仍算点击：交给 SidebarRail 原生切换，不进入拖拽。 */
+const RESIZE_CLICK_THRESHOLD_PX = 3
+
+function isActivePath(pathname: string, to: string) {
+  return pathname === to || pathname.startsWith(`${to}/`)
+}
 
 function Navigation({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation()
@@ -88,6 +121,10 @@ function Navigation({ onNavigate }: { onNavigate?: () => void }) {
  *
  * 侧栏只留工作台；个人资料 / 系统管理 / 设置 / 关于在顶栏头像菜单里
  * （系统管理按角色隐藏，接口层另有 403）。移动端把同一份侧栏装进 Sheet。
+ *
+ * 桌面侧栏用 shadcn/ui Sidebar 的 `collapsible="icon"` 收起成图标栏，
+ * 收起 / 图标 / 悬停提示都是官方能力；只有右缘拖动是这里补的：宽度与开合
+ * 状态由本组件受控，并只写 localStorage（键见 lib/sidebar.ts）。
  */
 export function AppShell() {
   const { t } = useTranslation()
@@ -98,29 +135,153 @@ export function AppShell() {
   const role = useAuthStore((state) => state.user?.role)
   const name = useSiteStore((state) => state.info?.name ?? "")
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(readSidebarOpen)
+  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
+  const [resizing, setResizing] = useState(false)
+  const dragRef = useRef<{
+    startX: number
+    startWidth: number
+    width: number
+    moved: boolean
+  } | null>(null)
+  const suppressRailClickRef = useRef(false)
 
   const titleKey = titleKeyFor(location.pathname)
   const primaryLabel = accountPrimaryLabel(user)
+  const toggleLabelKey = sidebarOpen
+    ? "workbench.sidebar.collapse"
+    : "workbench.sidebar.expand"
 
   const signOut = async () => {
     await logout()
     navigate("/login", { replace: true })
   }
 
+  const changeSidebarOpen = (open: boolean) => {
+    setSidebarOpen(open)
+    writeSidebarOpen(open)
+  }
+
+  /** 右缘按下只记录起点；位移超过阈值才真正开始拖。 */
+  const startResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    // 收起态宽度固定走官方 3rem，非主键不参与拖拽。
+    if (!sidebarOpen || event.button !== 0) return
+    dragRef.current = {
+      startX: event.clientX,
+      startWidth: sidebarWidth,
+      width: sidebarWidth,
+      moved: false
+    }
+    // 上一次拖拽若没等来 click，不能让它吃掉这一次正常点击。
+    suppressRailClickRef.current = false
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const resizeSidebar = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag) return
+    const delta = event.clientX - drag.startX
+    if (!drag.moved && Math.abs(delta) <= RESIZE_CLICK_THRESHOLD_PX) return
+    drag.moved = true
+    drag.width = clampSidebarWidth(drag.startWidth + delta)
+    setResizing(true)
+    setSidebarWidth(drag.width)
+  }
+
+  /** 拖动中只改内存宽度，松手才落盘；没收住位移则完全不碰开合状态。 */
+  const endResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current
+    if (!drag) return
+    dragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setResizing(false)
+    if (!drag.moved) return
+    suppressRailClickRef.current = true
+    writeSidebarWidth(drag.width)
+  }
+
+  const cancelResize = () => {
+    if (!dragRef.current) return
+    dragRef.current = null
+    setResizing(false)
+  }
+
+  const guardRailClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    if (!suppressRailClickRef.current) return
+    suppressRailClickRef.current = false
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
   return (
-    <div className="flex min-h-svh bg-background text-foreground">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
-        <NavLink
-          to="/workbench"
-          className="flex h-14 items-center px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          {name}
-        </NavLink>
-        <Navigation />
-        <div className="mt-auto border-t border-sidebar-border px-4 py-3 text-xs text-sidebar-foreground/60">
-          {buildVersionLabel(name || undefined)}
-        </div>
-      </aside>
+    <SidebarProvider
+      open={sidebarOpen}
+      onOpenChange={changeSidebarOpen}
+      data-resizing={resizing ? "true" : undefined}
+      className="bg-background text-foreground"
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+    >
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="p-0">
+          <NavLink
+            to="/workbench"
+            className="flex h-14 items-center px-4 font-heading text-sm font-semibold tracking-tight transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
+          >
+            {name}
+          </NavLink>
+        </SidebarHeader>
+
+        <SidebarContent>
+          <nav className="p-2">
+            <SidebarMenu>
+              {SIDEBAR_ITEMS.map((item) => {
+                const Icon = item.icon
+                return (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActivePath(location.pathname, item.to)}
+                      tooltip={t(item.labelKey)}
+                    >
+                      <NavLink to={item.to}>
+                        <Icon aria-hidden="true" />
+                        <span>{t(item.labelKey)}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </nav>
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-sidebar-border">
+          <div className="px-2 py-1 text-xs text-sidebar-foreground/60 group-data-[collapsible=icon]:hidden">
+            {buildVersionLabel(name || undefined)}
+          </div>
+          <SidebarMenuButton
+            type="button"
+            aria-label={t(toggleLabelKey)}
+            tooltip={t(toggleLabelKey)}
+            onClick={() => changeSidebarOpen(!sidebarOpen)}
+          >
+            {sidebarOpen ? <PanelLeftCloseIcon /> : <PanelLeftOpenIcon />}
+            <span>{t(toggleLabelKey)}</span>
+          </SidebarMenuButton>
+        </SidebarFooter>
+
+        <SidebarRail
+          aria-label={t("workbench.sidebar.toggle")}
+          title={t("workbench.sidebar.toggle")}
+          onPointerDown={startResize}
+          onPointerMove={resizeSidebar}
+          onPointerUp={endResize}
+          onPointerCancel={cancelResize}
+          onClickCapture={guardRailClick}
+        />
+      </Sidebar>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
@@ -210,6 +371,6 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }
