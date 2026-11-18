@@ -37,6 +37,7 @@ function renderSettings() {
 }
 
 beforeEach(async () => {
+  document.documentElement.lang = "zh"
   useAuthStore.setState({ user: me(), status: "ready" })
   vi.mocked(meApi.update).mockResolvedValue(me({ language: "en" }))
   vi.mocked(meApi.changePassword).mockResolvedValue({ success: true })
@@ -44,17 +45,96 @@ beforeEach(async () => {
 })
 
 describe("设置页", () => {
-  it("切换语言即时生效并写回账号", async () => {
+  it("偏好无改动时保存按钮禁用，修改语言后点击保存统一写回并即时生效", async () => {
     const user = userEvent.setup()
     renderSettings()
 
     await user.click(screen.getByRole("tab", { name: /偏好|preferences/i }))
-    await user.click(screen.getByRole("radio", { name: "English" }))
+
+    const saveButton = screen.getByRole("button", { name: /保存|save/i })
+    expect(saveButton).toBeDisabled()
+
+    await user.click(
+      screen.getByRole("combobox", { name: /界面语言|language/i })
+    )
+    await user.click(await screen.findByRole("option", { name: "English" }))
+
+    expect(saveButton).toBeEnabled()
+    await user.click(saveButton)
 
     await waitFor(() =>
-      expect(meApi.update).toHaveBeenCalledWith({ language: "en" })
+      expect(meApi.update).toHaveBeenCalledWith({
+        language: "en",
+        timezone: "Asia/Shanghai"
+      })
     )
     expect(document.documentElement.lang).toBe("en")
+    expect(saveButton).toBeDisabled()
+  })
+
+  it("偏好保存失败时展示错误提示且不变更语言", async () => {
+    vi.mocked(meApi.update).mockRejectedValueOnce(new Error("network error"))
+    const user = userEvent.setup()
+    renderSettings()
+
+    await user.click(screen.getByRole("tab", { name: /偏好|preferences/i }))
+
+    await user.click(
+      screen.getByRole("combobox", { name: /界面语言|language/i })
+    )
+    await user.click(await screen.findByRole("option", { name: "English" }))
+
+    const saveButton = screen.getByRole("button", { name: /保存|save/i })
+    await user.click(saveButton)
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument())
+    expect(document.documentElement.lang).toBe("zh")
+  })
+
+  it("修改时区后启用保存，点击保存统一提交", async () => {
+    vi.mocked(meApi.update).mockResolvedValue(
+      me({ language: "zh", timezone: "America/New_York" })
+    )
+    const user = userEvent.setup()
+    renderSettings()
+
+    await user.click(screen.getByRole("tab", { name: /偏好|preferences/i }))
+
+    const saveButton = screen.getByRole("button", { name: /保存|save/i })
+    expect(saveButton).toBeDisabled()
+
+    await user.click(screen.getByRole("combobox", { name: "时区" }))
+    await user.click(
+      await screen.findByRole("option", { name: "America/New_York" })
+    )
+
+    expect(saveButton).toBeEnabled()
+    await user.click(saveButton)
+
+    await waitFor(() =>
+      expect(meApi.update).toHaveBeenCalledWith({
+        language: "zh",
+        timezone: "America/New_York"
+      })
+    )
+    expect(saveButton).toBeDisabled()
+  })
+
+  it("未保存离开偏好页不生效也不调用写回", async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    await user.click(screen.getByRole("tab", { name: /偏好|preferences/i }))
+
+    await user.click(
+      screen.getByRole("combobox", { name: /界面语言|language/i })
+    )
+    await user.click(await screen.findByRole("option", { name: "English" }))
+
+    await user.click(screen.getByRole("tab", { name: /安全|security/i }))
+
+    expect(meApi.update).not.toHaveBeenCalled()
+    expect(document.documentElement.lang).toBe("zh")
   })
 
   it("时区下拉只列常用时区", async () => {
