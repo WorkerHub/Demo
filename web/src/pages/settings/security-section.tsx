@@ -265,7 +265,10 @@ export function SecuritySection() {
         <h3 className="font-heading text-sm font-semibold">
           {t("settings.security.passwordTitle")}
         </h3>
-        <PasswordChangeForm idPrefix="security" />
+        <PasswordChangeForm
+          idPrefix="security"
+          inputClassName="w-full sm:w-80"
+        />
       </section>
 
       <Separator />
