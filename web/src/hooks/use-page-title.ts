@@ -24,6 +24,7 @@ export const PAGE_TITLE_KEYS: Record<string, string> = {
   "/admin/email": "workbench.nav.admin",
   "/admin/registration": "workbench.nav.admin",
   "/admin/users": "workbench.nav.admin",
+  "/admin/database": "workbench.nav.admin",
   "/admin/maintenance": "workbench.nav.admin"
 }
 

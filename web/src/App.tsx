@@ -104,8 +104,12 @@ export const routes: RouteObject[] = [
                           },
                           { path: "users", element: <AdminUsersTab /> },
                           {
-                            path: "maintenance",
+                            path: "database",
                             element: <MaintenanceSection />
+                          },
+                          {
+                            path: "maintenance",
+                            element: <Navigate to="/admin/database" replace />
                           },
                           {
                             path: "*",

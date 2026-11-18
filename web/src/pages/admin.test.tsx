@@ -56,7 +56,11 @@ const adminRoutes: RouteObject[] = [
       { path: "email", element: <EmailSection /> },
       { path: "registration", element: <RegistrationSection /> },
       { path: "users", element: <AdminUsersTab /> },
-      { path: "maintenance", element: <MaintenanceSection /> },
+      { path: "database", element: <MaintenanceSection /> },
+      {
+        path: "maintenance",
+        element: <Navigate to="/admin/database" replace />
+      },
       { path: "*", element: <Navigate to="/admin/email" replace /> }
     ]
   }
@@ -639,12 +643,19 @@ describe("用户管理操作列", () => {
       ).toBeInTheDocument()
       unmount2()
 
-      // 3. 直达 /admin/maintenance
-      const { unmount: unmount3 } = renderAdmin("/admin/maintenance")
+      // 3. 直达 /admin/database
+      const { unmount: unmount3 } = renderAdmin("/admin/database")
       expect(
         await screen.findByRole("heading", { name: "数据库维护" })
       ).toBeInTheDocument()
       unmount3()
+
+      // 4. 旧路径 /admin/maintenance 重定向至 /admin/database
+      const { unmount: unmountLegacy } = renderAdmin("/admin/maintenance")
+      expect(
+        await screen.findByRole("heading", { name: "数据库维护" })
+      ).toBeInTheDocument()
+      unmountLegacy()
 
       // 4. 裸路径 /admin 自动重定向至首 tab /admin/email
       const { unmount: unmount4 } = renderAdmin("/admin")

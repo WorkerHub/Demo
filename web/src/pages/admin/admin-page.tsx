@@ -48,7 +48,8 @@ export function AdminPage() {
   }, [load])
 
   const segments = location.pathname.split("/").filter(Boolean)
-  const currentTab = segments[1] || "email"
+  const currentTab =
+    segments[1] === "database" ? "maintenance" : segments[1] || "email"
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -77,7 +78,7 @@ export function AdminPage() {
               <NavLink to="/admin/users">{t("admin.tabs.users")}</NavLink>
             </TabsTrigger>
             <TabsTrigger value="maintenance" asChild>
-              <NavLink to="/admin/maintenance">
+              <NavLink to="/admin/database">
                 {t("admin.tabs.maintenance")}
               </NavLink>
             </TabsTrigger>

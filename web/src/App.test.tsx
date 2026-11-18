@@ -413,6 +413,20 @@ describe("路由与根门", () => {
       await screen.findByRole("heading", { name: "两步验证" })
     ).toBeInTheDocument()
     u4()
+
+    // 5. /admin/database 独立 URL 直达
+    const { unmount: u5 } = renderAt(routes, "/admin/database")
+    expect(
+      await screen.findByRole("heading", { name: "数据库维护" })
+    ).toBeInTheDocument()
+    u5()
+
+    // 6. /admin/maintenance 重定向至 /admin/database
+    const { unmount: u6 } = renderAt(routes, "/admin/maintenance")
+    expect(
+      await screen.findByRole("heading", { name: "数据库维护" })
+    ).toBeInTheDocument()
+    u6()
   })
 
   it("页面标题映射支持 /admin/* 与 /settings/* 子路径", () => {
@@ -420,6 +434,7 @@ describe("路由与根门", () => {
     expect(titleKeyFor("/admin/email")).toBe("workbench.nav.admin")
     expect(titleKeyFor("/admin/registration")).toBe("workbench.nav.admin")
     expect(titleKeyFor("/admin/users")).toBe("workbench.nav.admin")
+    expect(titleKeyFor("/admin/database")).toBe("workbench.nav.admin")
     expect(titleKeyFor("/admin/maintenance")).toBe("workbench.nav.admin")
     expect(titleKeyFor("/admin/other-subpath")).toBe("workbench.nav.admin")
 
