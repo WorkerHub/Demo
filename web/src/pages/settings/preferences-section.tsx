@@ -13,6 +13,7 @@ import {
 import { applyAccountLanguage } from "@/i18n"
 import { meApi } from "@/lib/api"
 import { describeApiError } from "@/lib/api-errors"
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard"
 import {
   DEFAULT_LANGUAGE,
   isLanguage,
@@ -130,6 +131,7 @@ export function PreferencesSection() {
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
+      <UnsavedChangesGuard isDirty={isDirty} />
       <div className="space-y-2">
         <Label htmlFor="preferences-language">
           {t("settings.preferences.language")}

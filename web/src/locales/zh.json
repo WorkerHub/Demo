@@ -47,7 +47,13 @@
     "emailNotConfigured": "邮件未配置",
     "resendIn": "{{seconds}} 秒后可重发",
     "resend": "重新发送",
-    "home": "首页"
+    "home": "首页",
+    "unsavedChanges": {
+      "title": "未保存的修改",
+      "description": "当前有未保存的修改，离开将丢失内容，是否继续？",
+      "stay": "留在本页",
+      "discard": "放弃修改"
+    }
   },
   "errors": {
     "generic": "操作失败，请重试",

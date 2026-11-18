@@ -47,7 +47,13 @@
     "emailNotConfigured": "Email not configured",
     "resendIn": "Resend in {{seconds}}s",
     "resend": "Resend",
-    "home": "Home"
+    "home": "Home",
+    "unsavedChanges": {
+      "title": "Unsaved changes",
+      "description": "Current form has unsaved changes. Leaving will discard them. Do you want to continue?",
+      "stay": "Stay on page",
+      "discard": "Discard changes"
+    }
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
