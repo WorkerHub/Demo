@@ -69,6 +69,7 @@ export function PasswordChangeForm({
           name="current-password"
           type="password"
           autoComplete="current-password"
+          className="w-full sm:w-80"
           value={currentPassword}
           onChange={(event) => setCurrentPassword(event.target.value)}
         />
@@ -82,6 +83,7 @@ export function PasswordChangeForm({
           name="new-password"
           type="password"
           autoComplete="new-password"
+          className="w-full sm:w-80"
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
         />
@@ -95,6 +97,7 @@ export function PasswordChangeForm({
           name="confirm-password"
           type="password"
           autoComplete="new-password"
+          className="w-full sm:w-80"
           value={confirmPassword}
           onChange={(event) => setConfirmPassword(event.target.value)}
         />
