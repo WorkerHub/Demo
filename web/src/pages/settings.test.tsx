@@ -1,8 +1,16 @@
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import {
+  createMemoryRouter,
+  Navigate,
+  type RouteObject,
+  RouterProvider
+} from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
 import { SettingsPage } from "@/pages/settings"
+import { PreferencesSection } from "@/pages/settings/preferences-section"
+import { SecuritySection } from "@/pages/settings/security-section"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
 import { me, publicInfo } from "@/test/fixtures"
@@ -41,8 +49,24 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 const { meApi, authApi } = await import("@/lib/api")
 
-function renderSettings() {
-  return render(<SettingsPage />)
+const settingsRoutes: RouteObject[] = [
+  {
+    path: "/settings",
+    element: <SettingsPage />,
+    children: [
+      { index: true, element: <Navigate to="/settings/security" replace /> },
+      { path: "security", element: <SecuritySection /> },
+      { path: "preferences", element: <PreferencesSection /> },
+      { path: "*", element: <Navigate to="/settings/security" replace /> }
+    ]
+  }
+]
+
+function renderSettings(initialPath = "/settings/security") {
+  const router = createMemoryRouter(settingsRoutes, {
+    initialEntries: [initialPath]
+  })
+  return render(<RouterProvider router={router} />)
 }
 
 beforeEach(async () => {
@@ -554,6 +578,115 @@ describe("设置页", () => {
       await waitFor(() =>
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
       )
+    })
+  })
+
+  describe("Tab 独立路由与未保存拦截", () => {
+    it("支持两 tab URL 直达、裸路径重定向与未知子路径重定向", async () => {
+      // 1. 直达 /settings/security
+      const { unmount: unmount1 } = renderSettings("/settings/security")
+      expect(
+        await screen.findByRole("heading", { name: "两步验证" })
+      ).toBeInTheDocument()
+      unmount1()
+
+      // 2. 直达 /settings/preferences
+      const { unmount: unmount2 } = renderSettings("/settings/preferences")
+      expect(
+        await screen.findByRole("combobox", { name: /界面语言|language/i })
+      ).toBeInTheDocument()
+      unmount2()
+
+      // 3. 裸路径 /settings 自动重定向至首 tab /settings/security
+      const { unmount: unmount3 } = renderSettings("/settings")
+      expect(
+        await screen.findByRole("heading", { name: "两步验证" })
+      ).toBeInTheDocument()
+      unmount3()
+
+      // 4. 未知子路径 /settings/invalid 自动重定向至首 tab /settings/security
+      renderSettings("/settings/invalid")
+      expect(
+        await screen.findByRole("heading", { name: "两步验证" })
+      ).toBeInTheDocument()
+    })
+
+    it("偏好表单有脏改动时切换 Tab 触发拦截，可选择留在本页或放弃修改", async () => {
+      const user = userEvent.setup()
+      renderSettings("/settings/preferences")
+
+      // 修改语言（此时 isDirty 变 true）
+      await user.click(
+        await screen.findByRole("combobox", { name: /界面语言|language/i })
+      )
+      await user.click(await screen.findByRole("option", { name: "English" }))
+
+      // 尝试切换到「安全」Tab
+      await user.click(screen.getByRole("tab", { name: /安全|security/i }))
+
+      // 弹出未保存修改对话框
+      const dialog = await screen.findByRole("dialog")
+      expect(dialog).toHaveTextContent("未保存的修改")
+      expect(dialog).toHaveTextContent(
+        "当前有未保存的修改，离开将丢失内容，是否继续？"
+      )
+
+      // 点击「留在本页」
+      await user.click(within(dialog).getByRole("button", { name: "留在本页" }))
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+      })
+      // 仍在偏好页，保存按钮依然处于 dirty 可用态
+      expect(screen.getByRole("button", { name: /保存|save/i })).toBeEnabled()
+      expect(
+        screen.queryByRole("heading", { name: "两步验证" })
+      ).not.toBeInTheDocument()
+
+      // 再次尝试切换并点击「放弃修改」
+      await user.click(screen.getByRole("tab", { name: /安全|security/i }))
+      const discardDialog = await screen.findByRole("dialog")
+      await user.click(
+        within(discardDialog).getByRole("button", { name: "放弃修改" })
+      )
+
+      // 成功切到「安全」
+      expect(
+        await screen.findByRole("heading", { name: "两步验证" })
+      ).toBeInTheDocument()
+    })
+
+    it("安全页改密表单有已填内容时切换 Tab 拦截，留存 vs 放弃正常工作", async () => {
+      const user = userEvent.setup()
+      renderSettings("/settings/security")
+
+      const newPasswordInput = await screen.findByLabelText("新密码")
+      await user.type(newPasswordInput, "draft-new-pass")
+
+      // 尝试切换到「偏好」Tab
+      await user.click(screen.getByRole("tab", { name: /偏好|preferences/i }))
+
+      // 弹出未保存拦截弹窗
+      const dialog = await screen.findByRole("dialog")
+      expect(dialog).toHaveTextContent("未保存的修改")
+
+      // 点击「留在本页」
+      await user.click(within(dialog).getByRole("button", { name: "留在本页" }))
+      expect(screen.getByLabelText("新密码")).toHaveValue("draft-new-pass")
+      expect(
+        screen.queryByRole("combobox", { name: /界面语言|language/i })
+      ).not.toBeInTheDocument()
+
+      // 再次尝试切换并选择「放弃修改」
+      await user.click(screen.getByRole("tab", { name: /偏好|preferences/i }))
+      const discardDialog = await screen.findByRole("dialog")
+      await user.click(
+        within(discardDialog).getByRole("button", { name: "放弃修改" })
+      )
+
+      // 成功切换至偏好页
+      expect(
+        await screen.findByRole("combobox", { name: /界面语言|language/i })
+      ).toBeInTheDocument()
     })
   })
 })
