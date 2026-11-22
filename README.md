@@ -52,7 +52,7 @@ Demo — WorkerHub 项目模板的参考实现与演示站：迁移、setup 与�
 - **注册与审核**：开放注册、默认需要管理员批准；首个注册用户自动成为管理员并直接批准。支持「注册需验证邮箱」开关。
 - **现代前端体验**：响应式侧栏（SVG 菱形 Logo、宽度自由拖拽、收起为图标栏、本地持久化）；亮 / 暗 / 自动三档主题；PWA 添加至主屏幕；中英双语（i18next，错误码驱动翻译）；版本与构建信息自动生成注入。
 - **系统管理**：邮件通道配置（SMTP / Resend）与测试邮件发送、注册与审核策略开关、用户管理（全量用户列表、行内审核批准 / 拒绝、操作菜单重置密码 / 封禁 / 提权 / 删除）、其他（setup 页开关与生效表前缀展示）。
-- **定时任务与 waker**：`[triggers] crons` 提供原生定时入口；接入 waker 仅需一把 `WAKER_SIGNING_KEY` Secret（未配走 Cron、配了 waker 验签接管），不设多余模式开关。
+- **定时任务与 waker**：调度形态只认 `WAKER_SIGNING_KEY` 三态（未配 → 部署物化 `CRON_SCHEDULE` 走官方 Cron、真值 → waker 验签接管、`false` → 无调度；仓库 `crons` 恒为 `[]`），不设多余模式变量。
 - **CI/CD 流水线**：`ci.yml`（lint / format / typecheck / build / test / 身份校验 / 部署 dry-run）、`deploy.yml`（push main 自动部署与数据库自动迁移）、`tag.yml`（手动打语义化版本 tag）、`release.yml`（tag 触发 GitHub Release）。
 
 ## 技术栈
@@ -157,12 +157,12 @@ pnpm check:deploy   # 先 build:web，再 wrangler deploy --dry-run（不联网�
 
 ## 定时任务与 waker
 
-- `worker/wrangler.toml` 的 `[triggers] crons` 是唯一的原生定时入口（本项目里是每天一次）；任务本身只有一个 no-op 日志与 D1 抢占示例，往里加自己的 job。
-- 触发方式只由 `WAKER_SIGNING_KEY` 一个变量的取值决定，没有第二个模式开关：
-  - 未配置（含空值、`*_PLACEHOLDER`）→ 原生 Cron 跑；
-  - `false`（小写，保留值）→ 两个入口都不跑；
-  - 配了 waker 给的 key → waker 回调接管（`/_waker/execute` 验签），Cron 入口自行跳过。
-- 接入 waker 只配这一把 GitHub Secret。要彻底停掉原生 Cron 时把 `crons` 显式置为 `[]`，不要整段删除 `[triggers]`（Cloudflare 会保留已有 cron）。
+- 仓库提交的 `worker/wrangler.toml` 里 `[triggers] crons` 恒为 `[]`、不提交任何表达式、不占官方槽位。
+- 项目的定时表达式声明在仓库 Variable `CRON_SCHEDULE`（逗号分隔、按 UTC），由部署脚本 `scripts/materialize-secrets.mjs` 在部署期按 `WAKER_SIGNING_KEY` 三态物化进 `wrangler.toml`：
+  - 未配置（含空值、`*_PLACEHOLDER`）且声明了 `CRON_SCHEDULE` → 把表达式写入 `crons`，走 Cloudflare 官方 Cron Trigger；未声明 `CRON_SCHEDULE` 则 `crons` 保持 `[]`、无调度；
+  - `false`（小写，保留值）→ 显式关闭自动触发：`crons` 保持 `[]`，两个入口均不执行且不回落；
+  - 配了 waker 给的 key（真值）→ waker 接管：waker 发 HMAC 签名回调触发，`crons` 保持 `[]`，原生 Cron 入口若被触发也自行跳过让路。
+- 接入 waker 只配这一把 GitHub Secret，严禁另设模式变量；仓库中保持 `[triggers] crons = []`，不要整段删除 `[triggers]`（Cloudflare 会保留已有 cron）。任务实现位于 `worker/src/services/scheduled-task.ts`，含 no-op 日志与 D1 抢占示例，往里加自己的 job。
 
 ## 密钥与数据
 
@@ -176,16 +176,17 @@ pnpm check:deploy   # 先 build:web，再 wrangler deploy --dry-run（不联网�
 
 凭证与变量只从 GitHub Secrets / Variables 读取，绝不写进仓库：
 
-| 名称                    | 放哪          | 必填 | 用途                                                                   |
-| ----------------------- | ------------- | ---- | ---------------------------------------------------------------------- |
-| `SETUP_SECRET`          | 仓库 secret   | 是   | setup 页与 `POST /api/setup` 的 `X-Setup-Secret`，上传为 Worker secret |
-| `SIGNING_SECRET`        | 仓库 secret   | 是   | tempToken / Passkey 挑战 / 验证码哈希签名，上传为 Worker secret        |
-| `CLOUDFLARE_API_TOKEN`  | 组织 secret   | 是   | wrangler 部署                                                          |
-| `CLOUDFLARE_ACCOUNT_ID` | 组织 secret   | 是   | Cloudflare 账户                                                        |
-| `D1_DATABASE_ID`        | 组织 secret   | 是   | 共享 D1 的库 ID                                                        |
-| `D1_DATABASE_NAME`      | 组织 variable | 是   | 共享 D1 的库名，替换 `wrangler.toml` 占位符                            |
-| `TABLE_PREFIX`          | variable      | 否   | 表前缀三态（见下）                                                     |
-| `WAKER_SIGNING_KEY`     | 仓库 secret   | 否   | waker 回调验签钥                                                       |
+| 名称                    | 放哪          | 必填 | 用途                                                                                            |
+| ----------------------- | ------------- | ---- | ----------------------------------------------------------------------------------------------- |
+| `SETUP_SECRET`          | 仓库 secret   | 是   | setup 页与 `POST /api/setup` 的 `X-Setup-Secret`，上传为 Worker secret                          |
+| `SIGNING_SECRET`        | 仓库 secret   | 是   | tempToken / Passkey 挑战 / 验证码哈希签名，上传为 Worker secret                                 |
+| `CLOUDFLARE_API_TOKEN`  | 组织 secret   | 是   | wrangler 部署                                                                                   |
+| `CLOUDFLARE_ACCOUNT_ID` | 组织 secret   | 是   | Cloudflare 账户                                                                                 |
+| `D1_DATABASE_ID`        | 组织 secret   | 是   | 共享 D1 的库 ID                                                                                 |
+| `D1_DATABASE_NAME`      | 组织 variable | 是   | 共享 D1 的库名，替换 `wrangler.toml` 占位符                                                     |
+| `TABLE_PREFIX`          | variable      | 否   | 表前缀三态（见下）                                                                              |
+| `CRON_SCHEDULE`         | variable      | 否   | 官方 Cron 触发表达式（逗号分隔、按 UTC），未配 waker 且有声明时物化进 `crons`                   |
+| `WAKER_SIGNING_KEY`     | 仓库 secret   | 否   | 定时任务三态调度开关 / waker 回调验签钥（未配 → 官方 Cron；配 key → waker；`false` → 显式关闭） |
 
 - 舰队项目复用组织级 secret 与同一个共享 D1：不建仓库级同名项、不新建库；仓库级只加 `SETUP_SECRET` / `SIGNING_SECRET`（`WAKER_SIGNING_KEY` 按需）。
 - `tag.yml` 推 tag 还用到仓库 secret `PAT_TOKEN`（有 repo 写权限的 PAT）；不手动打 tag 的项目可以不配。
