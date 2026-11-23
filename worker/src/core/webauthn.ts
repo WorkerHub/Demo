@@ -12,6 +12,7 @@ import {
   verifyAuthenticationResponse as verifyAuthenticationResponseLib,
   verifyRegistrationResponse as verifyRegistrationResponseLib
 } from "@simplewebauthn/server"
+import { isoBase64URL } from "@simplewebauthn/server/helpers"
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie"
 import type { Context } from "hono"
 import { PROJECT_NAME } from "../config/project"
@@ -21,7 +22,7 @@ export const PASSKEY_CHALLENGE_COOKIE = "passkey_challenge"
 
 const CHALLENGE_TTL_SECONDS = 300
 
-export type ChallengePurpose = "register" | "authenticate"
+export type ChallengePurpose = "register" | "authenticate" | "login"
 
 export interface RelyingParty {
   rpID: string
@@ -112,12 +113,17 @@ export async function createRegistrationOptions(input: {
   rp: RelyingParty
   userName: string
   userDisplayName: string
+  userId?: number
   excludeCredentialIds: string[]
 }): Promise<Awaited<ReturnType<typeof generateRegistrationOptions>>> {
   return generateRegistrationOptions({
     rpName: PROJECT_NAME,
     rpID: input.rp.rpID,
     userName: input.userName,
+    userID:
+      input.userId !== undefined
+        ? new TextEncoder().encode(String(input.userId))
+        : undefined,
     userDisplayName: input.userDisplayName || input.userName,
     attestationType: "none",
     excludeCredentials: input.excludeCredentialIds.map((id) => ({
@@ -125,8 +131,8 @@ export async function createRegistrationOptions(input: {
       type: "public-key" as const
     })),
     authenticatorSelection: {
-      residentKey: "preferred",
-      userVerification: "preferred"
+      residentKey: "required",
+      userVerification: "required"
     }
   })
 }
@@ -145,7 +151,7 @@ export async function verifyRegistration(input: {
     expectedChallenge: input.expectedChallenge,
     expectedOrigin: input.rp.origin,
     expectedRPID: input.rp.rpID,
-    requireUserVerification: false
+    requireUserVerification: true
   })
   if (!result.verified) return { verified: false }
   const credential = result.registrationInfo.credential
@@ -160,18 +166,21 @@ export async function verifyRegistration(input: {
   }
 }
 
-/** 断言选项：只允许该用户已登记的凭据。 */
+/** 断言选项：支持第二因子（带 allowCredentialIds）与直接登录（留空 allowCredentialIds，UV required）。 */
 export async function createAuthenticationOptions(input: {
   rp: RelyingParty
-  allowCredentialIds: string[]
+  allowCredentialIds?: string[]
+  userVerification?: "required" | "preferred" | "discouraged"
 }): Promise<Awaited<ReturnType<typeof generateAuthenticationOptions>>> {
   return generateAuthenticationOptions({
     rpID: input.rp.rpID,
-    allowCredentials: input.allowCredentialIds.map((id) => ({
-      id,
-      type: "public-key" as const
-    })),
-    userVerification: "preferred"
+    allowCredentials: input.allowCredentialIds
+      ? input.allowCredentialIds.map((id) => ({
+          id,
+          type: "public-key" as const
+        }))
+      : undefined,
+    userVerification: input.userVerification ?? "preferred"
   })
 }
 
@@ -180,6 +189,7 @@ export async function verifyAuthentication(input: {
   expectedChallenge: string
   rp: RelyingParty
   credential: CredentialDescriptor
+  requireUserVerification?: boolean
 }): Promise<{ verified: true; newCounter: number } | { verified: false }> {
   const result = await verifyAuthenticationResponseLib({
     response: input.response as Parameters<
@@ -193,8 +203,32 @@ export async function verifyAuthentication(input: {
       publicKey: base64ToBytes(input.credential.publicKey),
       counter: input.credential.counter
     },
-    requireUserVerification: false
+    requireUserVerification: input.requireUserVerification ?? false
   })
   if (!result.verified) return { verified: false }
   return { verified: true, newCounter: result.authenticationInfo.newCounter }
+}
+
+/**
+ * 解析认证断言中的 userHandle（可发现凭证中通常为用户主键 UTF-8 字节的 base64url 编码）。
+ */
+export function parseUserHandle(userHandle: unknown): string | null {
+  if (userHandle instanceof Uint8Array) {
+    try {
+      return new TextDecoder().decode(userHandle)
+    } catch {
+      return null
+    }
+  }
+  if (typeof userHandle !== "string" || !userHandle.trim()) {
+    return null
+  }
+  const trimmed = userHandle.trim()
+  try {
+    const text = isoBase64URL.toUTF8String(trimmed)
+    if (text && !text.includes("\uFFFD")) {
+      return text
+    }
+  } catch {}
+  return trimmed || null
 }
