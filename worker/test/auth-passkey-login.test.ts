@@ -5,7 +5,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { PROJECT_NAME } from "../src/config/project"
 import { isoBase64URL } from "@simplewebauthn/server/helpers"
-import { settingsTable, usersTable } from "../src/lib/tables"
+import { countersTable, settingsTable, usersTable } from "../src/lib/tables"
 
 let lastRegOptionsInput: Record<string, unknown> | null = null
 let lastAuthOptionsInput: Record<string, unknown> | null = null
@@ -567,5 +567,77 @@ describe("通行密钥第一因子直接登录", () => {
     }
     expect(lockedBody.code).toBe("ACCOUNT_LOCKED")
     expect(lockedBody.retryAfter).toBeGreaterThan(0)
+  })
+
+  it("成功登录后清零失败计数与锁定记录（不留计数残留）", async () => {
+    const { env, db } = await initializedContext()
+    const prefix = activePrefix(env)
+    const email = "cleanfail@example.test"
+
+    const { cookie } = await registerAndLogin(env, { email })
+    const regOptions = await postJson(
+      env,
+      "/api/auth/2fa/passkey/register/options",
+      { password: TEST_PASSWORD },
+      { cookie }
+    )
+    const regChallenge = cookieFrom(regOptions, "passkey_challenge")
+    await postJson(
+      env,
+      "/api/auth/2fa/passkey/register/verify",
+      { credential: { id: "cred-login-1" } },
+      { cookie: cookieHeader(cookie, regChallenge) }
+    )
+
+    // 1. 模拟发生数次认证失败，产生失败计数
+    shouldVerifySucceed = false
+    const optFail = await postJson(env, "/api/auth/passkey/login/options", {})
+    const chFail = cookieFrom(optFail, "passkey_challenge")
+    const failRes = await postJson(
+      env,
+      "/api/auth/passkey/login/verify",
+      { credential: { id: "cred-login-1" } },
+      { cookie: chFail }
+    )
+    expect(failRes.status).toBe(401)
+
+    // 验证库中已存在失败记录
+    const failRowBefore = db.db
+      .prepare(
+        `SELECT count FROM ${countersTable(prefix)} WHERE action = 'login_fail' AND account = ?`
+      )
+      .get(email) as { count: number } | undefined
+    expect(failRowBefore?.count).toBeGreaterThan(0)
+
+    // 2. 恢复正常断言，直接登录成功
+    shouldVerifySucceed = true
+    const optSuccess = await postJson(
+      env,
+      "/api/auth/passkey/login/options",
+      {}
+    )
+    const chSuccess = cookieFrom(optSuccess, "passkey_challenge")
+    const successRes = await postJson(
+      env,
+      "/api/auth/passkey/login/verify",
+      { credential: { id: "cred-login-1" } },
+      { cookie: chSuccess }
+    )
+    expect(successRes.status).toBe(200)
+
+    // 3. 断言库中 login_fail 和 login_lock 均已被清理（无残留记录）
+    const failRowAfter = db.db
+      .prepare(
+        `SELECT count FROM ${countersTable(prefix)} WHERE action = 'login_fail' AND account = ?`
+      )
+      .get(email) as { count: number } | undefined
+    expect(failRowAfter).toBeUndefined()
+
+    const lockRowAfter = db.db
+      .prepare(
+        `SELECT locked_until FROM ${countersTable(prefix)} WHERE action = 'login_lock' AND account = ?`
+      )
+      .get(email) as { locked_until: number } | undefined
+    expect(lockRowAfter).toBeUndefined()
   })
 })

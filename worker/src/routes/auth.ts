@@ -793,12 +793,6 @@ authRoutes.post("/passkey/login/verify", async (c) => {
   const now = nowSeconds()
   const ip = clientIp(c)
 
-  const ipLimit = await enforceRateLimit(c.env.DB, prefix, {
-    ...LOGIN_LIMIT,
-    ip
-  })
-  if (!ipLimit.allowed) return rateLimited(c, ipLimit.retryAfter)
-
   const challenge = await readChallengeCookie(c, secret, "login")
   if (!challenge) {
     return apiError(
@@ -877,13 +871,14 @@ authRoutes.post("/passkey/login/verify", async (c) => {
     )
   }
 
-  const accountLimit = await enforceRateLimit(c.env.DB, prefix, {
+  const limit = await enforceRateLimit(c.env.DB, prefix, {
     ...LOGIN_LIMIT,
+    ip,
     account: user.email
   })
-  if (!accountLimit.allowed) {
+  if (!limit.allowed) {
     clearChallengeCookie(c)
-    return rateLimited(c, accountLimit.retryAfter)
+    return rateLimited(c, limit.retryAfter)
   }
 
   const rawUserHandle =
