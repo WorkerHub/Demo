@@ -846,7 +846,8 @@ authRoutes.post("/passkey/login/verify", async (c) => {
         userHandle?: unknown
       }
     | undefined
-  const credentialId = typeof response?.id === "string" ? response.id.trim() : ""
+  const credentialId =
+    typeof response?.id === "string" ? response.id.trim() : ""
   if (!credentialId) {
     clearChallengeCookie(c)
     return apiError(c, 401, "PASSKEY_FAILED", "Passkey credential is required")

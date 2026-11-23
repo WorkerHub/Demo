@@ -12,7 +12,7 @@ import {
   verifyAuthenticationResponse as verifyAuthenticationResponseLib,
   verifyRegistrationResponse as verifyRegistrationResponseLib
 } from "@simplewebauthn/server"
-import { isoBase64URL } from "@simplewebauthn/server/helpers"
+import { isoBase64URL, isoUint8Array } from "@simplewebauthn/server/helpers"
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie"
 import type { Context } from "hono"
 import { PROJECT_NAME } from "../config/project"
@@ -122,7 +122,7 @@ export async function createRegistrationOptions(input: {
     userName: input.userName,
     userID:
       input.userId !== undefined
-        ? new TextEncoder().encode(String(input.userId))
+        ? isoUint8Array.fromUTF8String(String(input.userId))
         : undefined,
     userDisplayName: input.userDisplayName || input.userName,
     attestationType: "none",
