@@ -751,6 +751,14 @@ authRoutes.post("/2fa/passkey/verify", async (c) => {
   })
   clearChallengeCookie(c)
   if (!verdict.verified) {
+    if (verdict.reason === "challenge_mismatch") {
+      return apiError(
+        c,
+        400,
+        "PASSKEY_CHALLENGE_MISSING",
+        "No pending passkey challenge; request options again"
+      )
+    }
     return apiError(c, 401, "PASSKEY_FAILED", "Passkey verification failed")
   }
 
@@ -915,6 +923,14 @@ authRoutes.post("/passkey/login/verify", async (c) => {
   clearChallengeCookie(c)
   if (!verdict.verified) {
     await registerLoginFailure(c.env, prefix, user.email, now)
+    if (verdict.reason === "challenge_mismatch") {
+      return apiError(
+        c,
+        400,
+        "PASSKEY_CHALLENGE_MISSING",
+        "No pending passkey challenge; request options again"
+      )
+    }
     return apiError(c, 401, "PASSKEY_FAILED", "Passkey verification failed")
   }
 

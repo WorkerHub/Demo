@@ -108,6 +108,30 @@ export interface RegistrationCredential {
   transports: string[]
 }
 
+export type VerifyFailureReason = "challenge_mismatch" | "verification_failed"
+
+export type VerifyRegistrationResult =
+  | { verified: true; credential: RegistrationCredential }
+  | { verified: false; reason: VerifyFailureReason }
+
+export type VerifyAuthenticationResult =
+  | { verified: true; newCounter: number }
+  | { verified: false; reason: VerifyFailureReason }
+
+export function isChallengeMismatchError(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase()
+    return (
+      msg.includes("response challenge") ||
+      (msg.includes("challenge") &&
+        (msg.includes("expected") ||
+          msg.includes("mismatch") ||
+          msg.includes("not equal")))
+    )
+  }
+  return false
+}
+
 /** 注册选项：排除已注册凭据，避免同一认证器重复登记。 */
 export async function createRegistrationOptions(input: {
   rp: RelyingParty
@@ -141,28 +165,35 @@ export async function verifyRegistration(input: {
   response: unknown
   expectedChallenge: string
   rp: RelyingParty
-}): Promise<
-  { verified: true; credential: RegistrationCredential } | { verified: false }
-> {
-  const result = await verifyRegistrationResponseLib({
-    response: input.response as Parameters<
-      typeof verifyRegistrationResponseLib
-    >[0]["response"],
-    expectedChallenge: input.expectedChallenge,
-    expectedOrigin: input.rp.origin,
-    expectedRPID: input.rp.rpID,
-    requireUserVerification: true
-  })
-  if (!result.verified) return { verified: false }
-  const credential = result.registrationInfo.credential
-  return {
-    verified: true,
-    credential: {
-      id: credential.id,
-      publicKey: bytesToBase64(credential.publicKey),
-      counter: credential.counter,
-      transports: credential.transports ?? []
+}): Promise<VerifyRegistrationResult> {
+  try {
+    const result = await verifyRegistrationResponseLib({
+      response: input.response as Parameters<
+        typeof verifyRegistrationResponseLib
+      >[0]["response"],
+      expectedChallenge: input.expectedChallenge,
+      expectedOrigin: input.rp.origin,
+      expectedRPID: input.rp.rpID,
+      requireUserVerification: true
+    })
+    if (!result.verified) {
+      return { verified: false, reason: "verification_failed" }
     }
+    const credential = result.registrationInfo.credential
+    return {
+      verified: true,
+      credential: {
+        id: credential.id,
+        publicKey: bytesToBase64(credential.publicKey),
+        counter: credential.counter,
+        transports: credential.transports ?? []
+      }
+    }
+  } catch (err) {
+    if (isChallengeMismatchError(err)) {
+      return { verified: false, reason: "challenge_mismatch" }
+    }
+    return { verified: false, reason: "verification_failed" }
   }
 }
 
@@ -190,23 +221,32 @@ export async function verifyAuthentication(input: {
   rp: RelyingParty
   credential: CredentialDescriptor
   requireUserVerification?: boolean
-}): Promise<{ verified: true; newCounter: number } | { verified: false }> {
-  const result = await verifyAuthenticationResponseLib({
-    response: input.response as Parameters<
-      typeof verifyAuthenticationResponseLib
-    >[0]["response"],
-    expectedChallenge: input.expectedChallenge,
-    expectedOrigin: input.rp.origin,
-    expectedRPID: input.rp.rpID,
-    credential: {
-      id: input.credential.id,
-      publicKey: base64ToBytes(input.credential.publicKey),
-      counter: input.credential.counter
-    },
-    requireUserVerification: input.requireUserVerification ?? false
-  })
-  if (!result.verified) return { verified: false }
-  return { verified: true, newCounter: result.authenticationInfo.newCounter }
+}): Promise<VerifyAuthenticationResult> {
+  try {
+    const result = await verifyAuthenticationResponseLib({
+      response: input.response as Parameters<
+        typeof verifyAuthenticationResponseLib
+      >[0]["response"],
+      expectedChallenge: input.expectedChallenge,
+      expectedOrigin: input.rp.origin,
+      expectedRPID: input.rp.rpID,
+      credential: {
+        id: input.credential.id,
+        publicKey: base64ToBytes(input.credential.publicKey),
+        counter: input.credential.counter
+      },
+      requireUserVerification: input.requireUserVerification ?? false
+    })
+    if (!result.verified) {
+      return { verified: false, reason: "verification_failed" }
+    }
+    return { verified: true, newCounter: result.authenticationInfo.newCounter }
+  } catch (err) {
+    if (isChallengeMismatchError(err)) {
+      return { verified: false, reason: "challenge_mismatch" }
+    }
+    return { verified: false, reason: "verification_failed" }
+  }
 }
 
 /**
