@@ -187,6 +187,14 @@ twoFactorManageRoutes.post("/passkey/register/verify", async (c) => {
   })
   clearChallengeCookie(c)
   if (!verdict.verified) {
+    if (verdict.reason === "challenge_mismatch") {
+      return apiError(
+        c,
+        400,
+        "PASSKEY_CHALLENGE_MISSING",
+        "No pending passkey challenge; request options again"
+      )
+    }
     return apiError(c, 400, "PASSKEY_FAILED", "Passkey registration failed")
   }
 
