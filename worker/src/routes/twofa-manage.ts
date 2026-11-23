@@ -125,6 +125,7 @@ twoFactorManageRoutes.post("/passkey/register/options", async (c) => {
     rp: relyingParty(c),
     userName: user.email,
     userDisplayName: user.display_name || user.email,
+    userId: user.id,
     excludeCredentialIds: (await listPasskeys(c.env.DB, prefix, userId)).map(
       (passkey) => passkey.credential_id
     )
