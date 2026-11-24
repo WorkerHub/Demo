@@ -173,14 +173,28 @@ describe("Passkey 命名与改名契约", () => {
     expect(listAfter.items[0].name).toBe("Work Laptop Key")
 
     // 缺省/非法 body 返回 400 INVALID_REQUEST，不静默清空
-    const invalidBodyRes = await request(env, `/api/me/passkeys/${passkeyId}`, {
-      method: "PATCH",
-      headers: { cookie }
-    })
-    expect(invalidBodyRes.status).toBe(400)
-    expect(((await invalidBodyRes.json()) as { code: string }).code).toBe(
-      "INVALID_REQUEST"
-    )
+    for (const badBody of [
+      undefined,
+      {},
+      { name: 123 },
+      { name: null },
+      { name: [] },
+      { name: {} }
+    ]) {
+      const res =
+        badBody === undefined
+          ? await request(env, `/api/me/passkeys/${passkeyId}`, {
+              method: "PATCH",
+              headers: { cookie }
+            })
+          : await patchJson(env, `/api/me/passkeys/${passkeyId}`, badBody, {
+              cookie
+            })
+      expect(res.status).toBe(400)
+      expect(((await res.json()) as { code: string }).code).toBe(
+        "INVALID_REQUEST"
+      )
+    }
     const listAfterInvalid = (await (
       await request(env, "/api/me/passkeys", { headers: { cookie } })
     ).json()) as {
@@ -353,14 +367,28 @@ describe("TOTP 标签与 UserView 契约", () => {
     expect(await patchLabel.json()).toEqual({ success: true })
 
     // 缺省/非法 body 请求返回 400 INVALID_REQUEST，不静默清空
-    const badPatch = await request(env, "/api/auth/2fa/totp/label", {
-      method: "PATCH",
-      headers: { cookie }
-    })
-    expect(badPatch.status).toBe(400)
-    expect(((await badPatch.json()) as { code: string }).code).toBe(
-      "INVALID_REQUEST"
-    )
+    for (const badBody of [
+      undefined,
+      {},
+      { label: 123 },
+      { label: null },
+      { label: [] },
+      { label: {} }
+    ]) {
+      const res =
+        badBody === undefined
+          ? await request(env, "/api/auth/2fa/totp/label", {
+              method: "PATCH",
+              headers: { cookie }
+            })
+          : await patchJson(env, "/api/auth/2fa/totp/label", badBody, {
+              cookie
+            })
+      expect(res.status).toBe(400)
+      expect(((await res.json()) as { code: string }).code).toBe(
+        "INVALID_REQUEST"
+      )
+    }
 
     const meAfterPatch = (await (
       await request(env, "/api/me", { headers: { cookie } })
