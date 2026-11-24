@@ -1,8 +1,8 @@
 /**
  * 通行密钥凭据的读写（表 `passkey_credentials`，结构对齐 eNotify）。
  *
- * 公钥与 credential_id 只进数据库、不进任何面向用户的 DTO；列表接口只暴露
- * id / 创建时间 / 最近使用时间 / transports，供设置页展示与删除。
+ * 公钥与 credential_id 只进数据库、不进任何面向用户的 DTO；列表接口暴露
+ * id / 名称 (name) / 创建时间 / 最近使用时间 / transports，供设置页展示、改名与删除。
  */
 import { passkeysTable } from "../../lib/tables"
 

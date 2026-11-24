@@ -63,9 +63,9 @@ export async function updateTotpLabel(
   prefix: string,
   userId: number,
   label: string | null
-): Promise<boolean> {
+): Promise<void> {
   const now = new Date().toISOString()
-  const result = await db
+  await db
     .prepare(
       `UPDATE ${user2faTable(prefix)}
           SET totp_label = ?, updated_at = ?
@@ -73,7 +73,6 @@ export async function updateTotpLabel(
     )
     .bind(label, now, userId)
     .run()
-  return result.meta.changes === 1
 }
 
 /** 开关邮箱第二因子；冲突分支只动 email 标志与更新时间，不碰 TOTP 字段。 */

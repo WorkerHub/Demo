@@ -1,5 +1,5 @@
 /**
- * 冻结契约自测：Passkey 命名 + TOTP 标签（schema_v2 + 接口完整性覆盖）。
+ * 冻结契约自测：Passkey 命名 + TOTP 标签（schema_v7 + 接口完整性覆盖）。
  *
  * 覆盖契约：
  * 4. POST /api/auth/2fa/passkey/register/verify：带 name（trim + slice(0,50)，空串→NULL）落库。
@@ -172,6 +172,22 @@ describe("Passkey 命名与改名契约", () => {
     }
     expect(listAfter.items[0].name).toBe("Work Laptop Key")
 
+    // 缺省/非法 body 返回 400 INVALID_REQUEST，不静默清空
+    const invalidBodyRes = await request(env, `/api/me/passkeys/${passkeyId}`, {
+      method: "PATCH",
+      headers: { cookie }
+    })
+    expect(invalidBodyRes.status).toBe(400)
+    expect(((await invalidBodyRes.json()) as { code: string }).code).toBe(
+      "INVALID_REQUEST"
+    )
+    const listAfterInvalid = (await (
+      await request(env, "/api/me/passkeys", { headers: { cookie } })
+    ).json()) as {
+      items: Array<{ id: number; name: string | null }>
+    }
+    expect(listAfterInvalid.items[0].name).toBe("Work Laptop Key")
+
     // 改为空串（清除名称）
     const clearRes = await patchJson(
       env,
@@ -335,6 +351,16 @@ describe("TOTP 标签与 UserView 契约", () => {
     )
     expect(patchLabel.status).toBe(200)
     expect(await patchLabel.json()).toEqual({ success: true })
+
+    // 缺省/非法 body 请求返回 400 INVALID_REQUEST，不静默清空
+    const badPatch = await request(env, "/api/auth/2fa/totp/label", {
+      method: "PATCH",
+      headers: { cookie }
+    })
+    expect(badPatch.status).toBe(400)
+    expect(((await badPatch.json()) as { code: string }).code).toBe(
+      "INVALID_REQUEST"
+    )
 
     const meAfterPatch = (await (
       await request(env, "/api/me", { headers: { cookie } })

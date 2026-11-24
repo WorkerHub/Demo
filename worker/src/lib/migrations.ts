@@ -29,7 +29,7 @@ export interface Migration {
 
 /** 唯一基线迁移名（坍缩为单一 V1）。 */
 export const BASELINE_MIGRATION = "schema_v1"
-export const SCHEMA_V2_MIGRATION = "schema_v2"
+export const SCHEMA_V7_MIGRATION = "schema_v7"
 
 async function hasColumn(
   db: D1Database,
@@ -65,7 +65,7 @@ export function getMigrations(prefix: string): Migration[] {
   return [
     { name: BASELINE_MIGRATION, sql },
     {
-      name: SCHEMA_V2_MIGRATION,
+      name: SCHEMA_V7_MIGRATION,
       sql: "",
       async prepare(ctx: MigrationContext) {
         const passkeys = passkeysTable(ctx.prefix)
