@@ -658,4 +658,136 @@ describe("Passkey 直接免密登录", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(screen.queryByText("workbench")).not.toBeInTheDocument()
   })
+
+  it("2FA 第二步用 Passkey 登录（passkey-only 账号）真失败展示与直接登录一致的错误提示", async () => {
+    vi.mocked(webauthnSupported).mockReturnValue(true)
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["passkey"]
+    })
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "2fa-challenge"
+    })
+    vi.mocked(authenticationCredential).mockResolvedValue({
+      id: "2fa-cred"
+    } as never)
+    vi.mocked(authApi.passkeyLoginVerify).mockRejectedValue(
+      new ApiError({
+        status: 401,
+        message: "Passkey verification failed",
+        code: "PASSKEY_FAILED"
+      })
+    )
+
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+    await user.click(
+      await screen.findByRole("button", { name: "用 Passkey 登录" })
+    )
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("Passkey 验证未通过")
+    expect(
+      screen.getByRole("button", { name: "用 Passkey 登录" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "返回" })).toBeInTheDocument()
+    expect(screen.queryByText("workbench")).not.toBeInTheDocument()
+  })
+
+  it("2FA 第二步用 Passkey 登录设备真失败（如 InvalidStateError）展示错误提示且可改用其他第二因子", async () => {
+    vi.mocked(webauthnSupported).mockReturnValue(true)
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["passkey", "email"]
+    })
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "2fa-challenge"
+    })
+    vi.mocked(authenticationCredential).mockRejectedValue(
+      new DOMException("The authenticator was not found", "InvalidStateError")
+    )
+
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+    await user.click(
+      await screen.findByRole("button", { name: "用 Passkey 登录" })
+    )
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("Passkey 验证未通过")
+
+    // 用户改用其他第二因子：点击「用邮箱验证码登录」
+    await user.click(screen.getByRole("button", { name: "用邮箱验证码登录" }))
+    expect(
+      screen.getByRole("button", { name: "发送验证码" })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  it("2FA 第二步用 Passkey 登录遇 NotAllowedError 取消静默，不弹错误提示", async () => {
+    vi.mocked(webauthnSupported).mockReturnValue(true)
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["passkey"]
+    })
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "2fa-challenge"
+    })
+    vi.mocked(authenticationCredential).mockRejectedValue(
+      new DOMException(
+        "The operation either timed out or was not allowed",
+        "NotAllowedError"
+      )
+    )
+
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+    await user.click(
+      await screen.findByRole("button", { name: "用 Passkey 登录" })
+    )
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    expect(screen.queryByText("workbench")).not.toBeInTheDocument()
+  })
+
+  it("2FA 第二步用 Passkey 登录遇 401 STEP_UP_REQUIRED 退回密码步", async () => {
+    vi.mocked(webauthnSupported).mockReturnValue(true)
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      methods: ["passkey"]
+    })
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "2fa-challenge"
+    })
+    vi.mocked(authenticationCredential).mockResolvedValue({
+      id: "2fa-cred"
+    } as never)
+    vi.mocked(authApi.passkeyLoginVerify).mockRejectedValue(
+      new ApiError({
+        status: 401,
+        message: "STEP_UP_REQUIRED",
+        code: "STEP_UP_REQUIRED"
+      })
+    )
+
+    const user = userEvent.setup()
+    renderLogin()
+    await enterPassword(user)
+    await user.click(
+      await screen.findByRole("button", { name: "用 Passkey 登录" })
+    )
+
+    expect(await screen.findByLabelText("邮箱")).toBeInTheDocument()
+    expect(screen.getByLabelText("密码")).toBeInTheDocument()
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "登录已超时，请重新输入密码"
+    )
+  })
 })

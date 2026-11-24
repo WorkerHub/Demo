@@ -235,7 +235,8 @@ export function LoginPage() {
     } catch (verifyError) {
       if (
         verifyError instanceof ApiError &&
-        verifyError.code === "TEMP_TOKEN_EXPIRED"
+        (verifyError.code === "TEMP_TOKEN_EXPIRED" ||
+          verifyError.code === "STEP_UP_REQUIRED")
       ) {
         backToPassword(describeApiError(t, verifyError))
       } else {
@@ -262,7 +263,8 @@ export function LoginPage() {
       if (isWebAuthnCancelled(passkeyError)) return
       if (
         passkeyError instanceof ApiError &&
-        passkeyError.code === "TEMP_TOKEN_EXPIRED"
+        (passkeyError.code === "TEMP_TOKEN_EXPIRED" ||
+          passkeyError.code === "STEP_UP_REQUIRED")
       ) {
         backToPassword(describeApiError(t, passkeyError))
         return
@@ -445,6 +447,8 @@ export function LoginPage() {
               </Button>
             </>
           ) : null}
+
+          {!canUseTotp ? message(error) : null}
 
           {step.kind === "totp" && (canUseEmail || canUsePasskey) ? (
             <>
