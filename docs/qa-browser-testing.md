@@ -57,3 +57,8 @@
 ## GitHub API
 
 - `gh api` 发 JSON body 时 `--input` 与 `-f/-F` 同用：后者被降级为 URL 查询参数、body 丢字段。`git/trees`、`git/refs` 等多字段接口要把全部字段拼进同一个 JSON 走 `--input`。`git/trees` 丢掉 `base_tree` 会生成只含本次条目的树——分支变成删库式坏提交，只能 force-update 修回。创建后先 `gh api git/trees/<sha>?recursive=1` 数条目数与基线一致，再更新 ref。
+
+## QA 产物提交纪律
+
+- QA 报告/证据若随分支提交（如 `qa/qaXXX-report.md` + `qa/evidence-qaXXX/`）：新增 `.md`/`.json` 先 `npx biome format --write`——biome 2.x 会格式化 Markdown 与 JSON，CI 的 format:check 会因此挂掉。
+- `build-info.test` 用 git describe 与构建产物比对：build 与 test 之间移动 HEAD（如 force update 分支）会因版本号陈旧假失败，重新 build 再 test 即恢复，不代表产品缺陷。
