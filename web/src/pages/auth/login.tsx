@@ -137,6 +137,7 @@ export function LoginPage() {
       const result = await authApi.passkeyDirectLoginVerify(credential)
       await finishLogin(result.user)
     } catch (passkeyError) {
+      if (isWebAuthnCancelled(passkeyError)) return
       if (
         passkeyError instanceof ApiError &&
         passkeyError.code === "EMAIL_NOT_VERIFIED"
@@ -443,7 +444,9 @@ export function LoginPage() {
                 {busy ? t("common.loading") : t("auth.login.totpSubmit")}
               </Button>
             </>
-          ) : null}
+          ) : (
+            message(error)
+          )}
 
           {step.kind === "totp" && (canUseEmail || canUsePasskey) ? (
             <>
