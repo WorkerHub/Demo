@@ -9,6 +9,10 @@ QA 需要核实生产 D1/R2 状态时，本机 wrangler 的 OAuth 凭证可直�
 - token 过期（401）后随便跑一个 wrangler 命令（如 `wrangler whoami`）会自动刷新，重新提取即可。
 - 账号 id / D1 库 id / 桶名：用 `wrangler whoami`、`wrangler d1 list`、`wrangler r2 bucket list` 现查，不存记忆。
 
+## 构建机凭据边界
+
+团队 MCP 构建机（后端/前端/QA/评审 agent，team secrets: all）拿不到 Cloudflare 写与日志读凭据：`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `D1_DATABASE_ID` 只存在 GitHub Actions（org secrets，`deploy.yml` 用），不在 MCP 团队 secret 清单里。因此生产 D1 写（如置开设置开关）、Worker 日志读（如定时任务数字）都不能由 MCP 构建机直接做，只能走用户侧（Muse）手动执行，或加 GitHub Actions workflow。
+
 ## D1 查询
 
 ```bash
@@ -26,6 +30,10 @@ curl -s "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/d1/database/$
 - LIST：`/accounts/{a}/r2/buckets/{bucket}/objects?per_page=1000`（单页上限 1000），翻页用响应里 `result_info.pagination.cursor`。
 - 生产 R2 读回的 ETag 是弱 ETag `W/"…"`（R2 SaaS 行为），与本地 miniflare 的强 ETag 格式不同——是环境差异，不是缺陷。
 - QA 清理纪律：上传前后对桶做全量快照逐 key 比对；删除只用按 key 精确 `DELETE`，严禁批量删除。
+
+## R2 直传 CORS
+
+R2 浏览器直传：目标桶必须配 CORS 策略——`AllowedOrigins`=站点源；`AllowedMethods`=PUT；`AllowedHeaders`=`*`；`ExposeHeaders`=ETag（分片读 ETag 回 complete）；`MaxAgeSeconds`=3600。漏配 CORS 会导致跨域 PUT 被浏览器静默拦截（前端报「网络异常」且全程无进度，规格与代码都不会提示）。新建直传桶/新项目直传 R2 务必配并验证 CORS。
 
 ## 版本自证口
 
